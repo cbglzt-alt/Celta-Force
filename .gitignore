@@ -1,24 +1,30 @@
-# Compiled class file
-*.class
+# Godot 4+ specific ignores
+.godot/
+**/.godot/
 
-# Log file
+# Godot-specific ignores (Godot 3 legacy paths)
+.import/
+export.cfg
+export_presets.cfg
+
+# Imported translations (automatically generated from CSV files)
+*.translation
+
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash.*.json
+
+# System / tool-specific ignores
+.directory
+.DS_Store
+Thumbs.db
+*~
+*.blend1
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
 *.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
