@@ -1,0 +1,28 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://game/game.gd" id="1"]
+[ext_resource type="Script" path="res://game/level_map.gd" id="2"]
+[ext_resource type="Script" path="res://game/fog_of_war.gd" id="3"]
+[ext_resource type="PackedScene" path="res://game/hud.tscn" id="4"]
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="LevelMap" type="Node2D" parent="World"]
+script = ExtResource("2")
+
+[node name="Effects" type="Node2D" parent="."]
+z_index = 60
+
+[node name="FogOfWar" type="Node2D" parent="."]
+z_index = 40
+script = ExtResource("3")
+
+[node name="RoundTimer" type="Timer" parent="."]
+
+[node name="ExtractTimer" type="Timer" parent="."]
+one_shot = true
+
+[node name="HUD" parent="." instance=ExtResource("4")]
