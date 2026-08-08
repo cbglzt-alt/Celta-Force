@@ -50,10 +50,10 @@
 
 | 类别 | 文件 | 关键字段 |
 |---|---|---|
-| 武器（鬼） | `chest-rush/game/data/weapons/*.tres` | damage / cooldown / range / pattern / color |
+| 武器（鬼） | `chest-rush/game/data/*.tres`（blade/arrow/domain） | damage / cooldown / attack_range / pattern / color |
 | 怪物 | `chest-rush/game/data/enemy.tres` | base_hp / hp_growth / dmg_growth / gold_growth / speed |
 | 对局节奏 | `game.gd` 顶部 `@export` | quest_target / round_interval / 强化费用曲线 |
-| 破坏物 | `destructible.gd` 顶部常量 | 宝箱/障碍血量（hits_left） |
+| 破坏物 | `destructible.gd` 顶部 `@export` | 宝箱/障碍血量（chest_hp=150 / obstacle_hp=90） |
 
 > 对局节奏与破坏物血量目前是 `@export`/常量，量小、改动少，暂不强行抽 Resource——**等有第二个关卡要复用时再抽**，避免过度设计。
 
