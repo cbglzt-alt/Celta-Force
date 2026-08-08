@@ -12,6 +12,7 @@ var _round_label: Label
 var _time_label: Label
 var _vision_label: Label
 var _up_labels := {}
+var _ghost_labels: Array = []
 var _countdown_label: Label
 var _banner: Label
 var _banner_tween: Tween
@@ -53,7 +54,13 @@ func refresh() -> void:
 	_vision_label.text = "视野道具 x%d（Q 使用） 视野半径 %d" % [game.vision_items, game.vision_radius()]
 	_refresh_upgrade("attack", "[1] 攻击")
 	_refresh_upgrade("speed", "[2] 移速")
-	_refresh_upgrade("hp", "[3] 生命")
+	_refresh_upgrade("hp", "[3] 生命上限")
+	# 3 只鬼槽位：颜色 + 名字 + 伤害
+	for i in mini(_ghost_labels.size(), p.weapons.size()):
+		var w = p.weapons[i]
+		var l: Label = _ghost_labels[i]
+		l.text = "%s %d" % [w.data.display_name, int(w.data.damage * w.damage_mult)]
+		l.add_theme_color_override("font_color", w.data.color)
 	if _countdown_label.visible and game.extract_running():
 		_countdown_label.text = "撤离倒计时 %.1f" % game.extract_time_left()
 
@@ -113,6 +120,16 @@ func _build_ui() -> void:
 	_gold_label.add_theme_color_override("font_color", Color("#facc15"))
 	_quest_label = _mk_label(tl, "", 16)
 	_quest_label.add_theme_color_override("font_color", Color("#e879f9"))
+
+	# 3 只鬼槽位（左中）
+	var ghosts := HBoxContainer.new()
+	ghosts.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	ghosts.grow_vertical = Control.GROW_DIRECTION_BOTH
+	ghosts.position = Vector2(14, -30)
+	ghosts.add_theme_constant_override("separation", 16)
+	add_child(ghosts)
+	for i in 3:
+		_ghost_labels.append(_mk_label(ghosts, "", 16))
 
 	# 右上：波次 / 时间
 	var tr := VBoxContainer.new()

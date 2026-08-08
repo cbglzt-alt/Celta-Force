@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/data/enemy_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+base_hp = 70.0
+base_speed = 90.0
+base_damage = 5.0
+contact_cooldown = 1.0
+base_gold = 4
+hp_growth = 1.28
+dmg_growth = 1.15
+gold_growth = 1.13
+speed_growth = 1.02
+speed_cap_mult = 1.6
+enrage_speed_mult = 1.8
+enrage_cooldown_mult = 0.5
