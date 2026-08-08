@@ -130,6 +130,52 @@ func _build() -> void:
 	assert(not chests.is_empty(), "地图没有宝箱")
 	assert(spawn_points.size() > 0, "地图没有刷怪点")
 	assert(exits.size() >= 2, "撤离点不足 2 个")
+	_build_pathfinding()
+
+
+# ---------- 寻路（怪物 A*，障碍摧毁后重算） ----------
+
+var _astar := AStar2D.new()
+
+
+func _pid(t: Vector2i) -> int:
+	return t.y * width + t.x
+
+
+func _build_pathfinding() -> void:
+	_astar.clear()
+	for y in height:
+		for x in width:
+			var t := Vector2i(x, y)
+			var id := _pid(t)
+			_astar.add_point(id, tile_to_world(t))
+			# 墙与存活障碍不可通行；宝箱可通行（怪可越过）
+			if walls.has(t) or (obstacles.get(t) != null and is_instance_valid(obstacles[t])):
+				_astar.set_point_disabled(id, true)
+	# 连接四方向相邻格
+	for y in height:
+		for x in width:
+			var t := Vector2i(x, y)
+			var id := _pid(t)
+			for off in [Vector2i(1, 0), Vector2i(0, 1)]:
+				var n: Vector2i = t + off
+				if in_bounds(n):
+					_astar.connect_points(id, _pid(n))
+
+
+## 障碍被摧毁后开放该格并重算连通
+func notify_walkable_changed(t: Vector2i) -> void:
+	_astar.set_point_disabled(_pid(t), false)
+
+
+## 返回从 from 到 to 的世界坐标路径（含起点），无路径时返回空
+func find_path(from: Vector2, to: Vector2) -> PackedVector2Array:
+	var a := _pid(world_to_tile(from))
+	var b := _pid(world_to_tile(to))
+	if not _astar.has_point(a) or not _astar.has_point(b):
+		return PackedVector2Array()
+	var pts := _astar.get_point_path(a, b)
+	return pts
 
 
 func _make_exit(center: Vector2, t: Vector2i) -> Dictionary:
@@ -163,6 +209,7 @@ func _on_exit_body(body: Node2D, rec: Dictionary) -> void:
 func _on_destructible_destroyed(d) -> void:
 	if obstacles.get(d.tile) == d:
 		obstacles.erase(d.tile)
+		notify_walkable_changed(d.tile)  # 开放该格，怪物可通行
 	destructible_destroyed.emit(d)
 
 

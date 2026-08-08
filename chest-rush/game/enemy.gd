@@ -1,26 +1,26 @@
 class_name Enemy
 extends CharacterBody2D
-## 追击型怪物：数值随轮次增强，任务完成后可暴走。
+## 追击型怪物：数值由 EnemyData(.tres) 驱动，随波次增强，任务完成后可暴走。
 
 signal died(pos, gold)
 
-@export var base_hp := 30.0
-@export var base_speed := 90.0
-@export var damage := 8.0
-@export var contact_cooldown := 1.0
-@export var gold_drop := 5
-@export var hp_growth := 1.15
-@export var speed_growth := 1.03
-@export var speed_cap_mult := 1.6
+## 数值来源（单一事实：game/data/enemy.tres）
+const DATA: EnemyData = preload("res://game/data/enemy.tres")
 
 var hp: float
 var speed: float
+var damage: float
+var gold_drop: int
+var contact_cooldown: float
 var enraged := false
 
 var _player: Node2D
 var _fog: Node2D
+var _level: Node2D
+var _path := PackedVector2Array()
+var _path_idx := 0
+var _repath := 0.0
 var _touch_timer := 0.0
-var _knockback := Vector2.ZERO
 var _base_color := Color("#ef4444")
 
 @onready var _body: Polygon2D = $Body
@@ -34,11 +34,15 @@ func _ready() -> void:
 
 
 ## 由 Game 在 add_child 后调用
-func setup(round_num: int, is_enraged: bool, player_ref: Node2D, fog_ref: Node2D) -> void:
-	hp = base_hp * pow(hp_growth, maxi(round_num - 1, 0))
-	speed = minf(base_speed * pow(speed_growth, maxi(round_num - 1, 0)), base_speed * speed_cap_mult)
+func setup(round_num: int, is_enraged: bool, player_ref: Node2D, fog_ref: Node2D, level_ref: Node2D) -> void:
+	hp = DATA.hp_at(round_num)
+	damage = DATA.damage_at(round_num)
+	gold_drop = DATA.gold_at(round_num)
+	speed = DATA.speed_at(round_num)
+	contact_cooldown = DATA.contact_cooldown
 	_player = player_ref
 	_fog = fog_ref
+	_level = level_ref
 	if is_enraged:
 		apply_enrage()
 
@@ -47,8 +51,8 @@ func apply_enrage() -> void:
 	if enraged:
 		return
 	enraged = true
-	speed *= 1.8
-	contact_cooldown *= 0.5
+	speed *= DATA.enrage_speed_mult
+	contact_cooldown *= DATA.enrage_cooldown_mult
 	_base_color = Color("#ff7b00")
 	_body.color = _base_color
 
@@ -57,12 +61,26 @@ func _physics_process(delta: float) -> void:
 	if _player == null or not is_instance_valid(_player) or not _player.alive:
 		velocity = Vector2.ZERO
 		return
+	# 寻路追击：周期性重算 A* 路径，沿路径走；近身则直冲
+	_repath -= delta
 	var to_player: Vector2 = _player.global_position - global_position
-	if to_player.length() > 4.0:
-		velocity = to_player.normalized() * speed + _knockback
+	if _repath <= 0.0:
+		_repath = 0.5
+		if _level != null:
+			_path = _level.find_path(global_position, _player.global_position)
+			_path_idx = 0
+	var dir: Vector2
+	if to_player.length() < 40.0 or _path.is_empty():
+		dir = to_player.normalized()
 	else:
-		velocity = _knockback
-	_knockback = _knockback.move_toward(Vector2.ZERO, 900.0 * delta)
+		# 沿路径点前进
+		while _path_idx < _path.size() and global_position.distance_to(_path[_path_idx]) < 10.0:
+			_path_idx += 1
+		if _path_idx < _path.size():
+			dir = (_path[_path_idx] - global_position).normalized()
+		else:
+			dir = to_player.normalized()
+	velocity = dir * speed
 	move_and_slide()
 	rotation = velocity.angle() if velocity.length() > 1.0 else rotation
 
@@ -80,16 +98,17 @@ func _process(_delta: float) -> void:
 		visible = _fog.is_visible_world(global_position)
 
 
-func take_damage(n: float, from_pos: Vector2) -> void:
+func take_damage(n: float, from_pos: Vector2, color := Color(1, 1, 1)) -> void:
 	hp -= n
-	_knockback = (global_position - from_pos).normalized() * 220.0
 	_flash()
 	var game = get_tree().get_first_node_in_group("game")
 	if game:
-		game.spawn_float_text(global_position, "%d" % int(n), Color(1, 1, 1))
+		game.spawn_float_text(global_position, "-%d" % int(n), color)
 	if hp <= 0.0:
 		died.emit(global_position, gold_drop)
-		queue_free()
+		set_deferred("monitoring", false)
+		hide()
+		call_deferred("queue_free")
 
 
 func _flash() -> void:
