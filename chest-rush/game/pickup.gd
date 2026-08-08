@@ -40,6 +40,14 @@ func setup(k: Kind, amt: int, fog_ref: Node2D) -> void:
 func _process(_delta: float) -> void:
 	if fog != null:
 		visible = fog.is_visible_world(global_position)
+	# 兜底：玩家站定开箱时，已在拾取范围内的新生掉落需主动吸附（body_entered 不重触发）
+	# 半径需 > 玩家贴箱最近距离（碰撞13+箱半宽~20）+ 金币偏移，约 45px
+	var p := get_tree().get_first_node_in_group("player")
+	if p != null and p.alive and global_position.distance_to(p.global_position) < 45.0:
+		var game = get_tree().get_first_node_in_group("game")
+		if game:
+			game.collect(self)
+		queue_free()
 
 
 func _on_body_entered(body: Node2D) -> void:
