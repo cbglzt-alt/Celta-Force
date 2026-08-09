@@ -133,6 +133,7 @@ func _build() -> void:
 	wall_visual.tex = load("res://assets/tiles/wall_top.png")
 	add_child(wall_body)
 	add_child(wall_visual)
+	_build_decor()  # 装饰层：墙面火把 + 地面杂物（纯视觉，不占格不碰撞）
 	assert(not chests.is_empty(), "地图没有宝箱")
 	assert(spawn_points.size() > 0, "地图没有刷怪点")
 	assert(exits.size() >= 2, "撤离点不足 2 个")
@@ -221,6 +222,71 @@ func _on_destructible_destroyed(d) -> void:
 		obstacles.erase(d.tile)
 		notify_walkable_changed(d.tile)  # 开放该格，怪物可通行
 	destructible_destroyed.emit(d)
+
+
+## 装饰层：墙面火把 + 地面杂物。纯视觉，不占格、不碰撞、不影响寻路/视野。
+## 原则：只用"一眼就是环境"的装饰（破砖/碎骨/烛台），禁用道具外形（药水瓶/地刺）以免误导。
+const DECOR_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/"
+## 墙面火把 / 烛台：4 帧动画（烛火摇曳）
+const WALL_TORCH := ["torch/side_torch_1.png", "torch/side_torch_2.png", "torch/side_torch_3.png", "torch/side_torch_4.png"]
+const CANDLE := ["torch/candlestick_2_1.png", "torch/candlestick_2_2.png", "torch/candlestick_2_3.png", "torch/candlestick_2_4.png"]
+## 地面杂物：破砖/碎骨（单帧）
+const FLOOR_PROPS: Array = [
+	["res://assets/tiles/debris_a.png"],   # 破砖
+	["res://assets/tiles/debris_c.png"],   # 碎骨堆
+	CANDLE,                                 # 烛台（动画）
+]
+
+func _build_decor() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260728  # 固定种子：每次进图装饰布局一致（契合固定关卡设定）
+	for y in height:
+		for x in width:
+			var t := Vector2i(x, y)
+			if not walls.has(t):
+				continue
+			# 墙面火把：这格是墙、且下方是地板（墙脚）→ 在墙脚插火把
+			var below := t + Vector2i(0, 1)
+			if in_bounds(below) and not blocks_vision(below) and rng.randf() < 0.16:
+				_add_sprite(WALL_TORCH, tile_to_world(t) + Vector2(0, 8), 2.0, 5)
+			# 地面杂物：墙格跳过，下面是地板格才撒（稀疏）
+	for y in height:
+		for x in width:
+			var t := Vector2i(x, y)
+			if walls.has(t) or obstacles.has(t):
+				continue
+			# 避开关键格（出生点/宝箱/门/刷怪点所在的明确功能格由字符保证非墙非障碍即可）
+			if MAP[y][x] != ".":
+				continue
+			if rng.randf() < 0.05:
+				var pick: Array = FLOOR_PROPS[rng.randi() % FLOOR_PROPS.size()]
+				_add_sprite(pick, tile_to_world(t) + Vector2(rng.randf_range(-6, 6), rng.randf_range(-6, 6)), 1.8, -5)
+
+
+func _add_sprite(frames: Array, pos: Vector2, scale: float, z: int) -> void:
+	# 单帧用 Sprite2D，多帧用 AnimatedSprite2D（烛火/火把摇曳）
+	var s: Node2D
+	if frames.size() > 1:
+		var sf := SpriteFrames.new()
+		sf.add_animation("idle")
+		sf.set_animation_speed("idle", 5.0)
+		sf.set_animation_loop("idle", true)
+		for f in frames:
+			var p: String = f if f.begins_with("res://") else DECOR_DIR + f
+			sf.add_frame("idle", load(p))
+		var anim := AnimatedSprite2D.new()
+		anim.sprite_frames = sf
+		anim.play("idle")
+		s = anim
+	else:
+		var sp := Sprite2D.new()
+		var single: String = frames[0]
+		sp.texture = load(single if single.begins_with("res://") else DECOR_DIR + single)
+		s = sp
+	s.scale = Vector2(scale, scale)
+	s.z_index = z
+	add_child(s)
+	s.global_position = pos
 
 
 ## 地板：用 dungeon 石板瓦片平铺（放大 2 倍 + 淡网格线），替代纯色背景

@@ -8,8 +8,17 @@ signal destroyed(d)
 
 enum Kind { OBSTACLE, CHEST }
 
-const OBSTACLE_SPRITE := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/box_1/box_1_1.png"
-const CHEST_SPRITE := "res://assets/tiles/chest.png"
+const TRAP_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/"
+## 障碍物多帧动画（4 种箱型，各 4 帧）
+const OBSTACLE_SETS: Array = [
+	["box_1/box_1_1.png", "box_1/box_1_2.png", "box_1/box_1_3.png", "box_1/box_1_4.png"],
+	["box_2/box_2_1.png", "box_2/box_2_2.png", "box_2/box_2_3.png", "box_2/box_2_4.png"],
+	["mini_box_1/mini_box_1_1.png", "mini_box_1/mini_box_1_2.png", "mini_box_1/mini_box_1_3.png", "mini_box_1/mini_box_1_4.png"],
+	["mini_box_2/mini_box_2_1.png", "mini_box_2/mini_box_2_2.png", "mini_box_2/mini_box_2_3.png", "mini_box_2/mini_box_2_4.png"],
+]
+## 宝箱：关闭动画 + 打开动画（最明显的 chest 系列）
+const CHEST_CLOSED := ["chest/chest_1.png", "chest/chest_2.png", "chest/chest_3.png", "chest/chest_4.png"]
+const CHEST_OPEN := ["chest/chest_open_1.png", "chest/chest_open_2.png", "chest/chest_open_3.png", "chest/chest_open_4.png"]
 
 @export var obstacle_hp := 90.0
 @export var chest_open_time := 3.5  # 贴近读条秒数
@@ -32,20 +41,31 @@ func _ready() -> void:
 	add_to_group("destructibles")
 
 
-var _sprite: Sprite2D
+var _sprite: AnimatedSprite2D
 
 
 func setup(k: Kind, t: Vector2i) -> void:
 	kind = k
 	tile = t
-	_body.visible = false  # 两种都用 sprite，隐藏占位色块
-	_sprite = Sprite2D.new()
+	_body.visible = false  # 隐藏占位色块，用多帧动画
+	_sprite = AnimatedSprite2D.new()
 	_sprite.scale = Vector2(2.0, 2.0)
+	var sf := SpriteFrames.new()
+	sf.add_animation("idle")
+	sf.set_animation_speed("idle", 5.0)
+	sf.set_animation_loop("idle", true)
+	var frames: Array
 	if kind == Kind.OBSTACLE:
 		hp = obstacle_hp
-		_sprite.texture = load(OBSTACLE_SPRITE)  # 石纹箱
+		# 按格子坐标定一种箱型，同一格每次进图都一致（不随机闪变）
+		var pick := int(abs(t.x * 7 + t.y * 13)) % OBSTACLE_SETS.size()
+		frames = OBSTACLE_SETS[pick]
 	else:
-		_sprite.texture = load(CHEST_SPRITE)     # 关闭宝箱
+		frames = CHEST_CLOSED
+	for f in frames:
+		sf.add_frame("idle", load(TRAP_DIR + f))
+	_sprite.sprite_frames = sf
+	_sprite.play("idle")
 	add_child(_sprite)
 
 
@@ -68,30 +88,39 @@ func _process(delta: float) -> void:
 			_open()
 
 
+var _bar_root: ColorRect  # 读条根节点（底），前景是其子节点
+
+
 func _set_opening(v: bool) -> void:
 	if v == _opening:
 		return
 	_opening = v
-	if v and _progress_bar == null:
+	if v and _bar_root == null:
 		_make_bar()
-	elif not v and _progress_bar != null:
-		_progress_bar.queue_free()
-		_progress_bar = null
+	elif not v and _bar_root != null:
+		_clear_bar()
 		_open_progress = 0.0  # 离开重置，须一口气读满
+
+
+func _clear_bar() -> void:
+	if _bar_root != null:
+		_bar_root.queue_free()  # 连根（含前景子节点）一起销毁
+		_bar_root = null
+		_progress_bar = null
 
 
 func _make_bar() -> void:
 	# 读条底 + 前景（贴在宝箱下方——上方可能贴墙被挡，下方总是地板）
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.6)
-	bg.size = Vector2(28, 5)
-	bg.position = Vector2(-14, 17)
-	bg.z_index = 20
-	add_child(bg)
+	_bar_root = ColorRect.new()
+	_bar_root.color = Color(0, 0, 0, 0.6)
+	_bar_root.size = Vector2(28, 5)
+	_bar_root.position = Vector2(-14, 17)
+	_bar_root.z_index = 20
+	add_child(_bar_root)
 	_progress_bar = ColorRect.new()
 	_progress_bar.color = Color("#e8c07a")
 	_progress_bar.size = Vector2(0, 5)
-	bg.add_child(_progress_bar)
+	_bar_root.add_child(_progress_bar)
 
 
 func _update_bar() -> void:
@@ -99,12 +128,34 @@ func _update_bar() -> void:
 		_progress_bar.size.x = 28.0 * clampf(_open_progress / chest_open_time, 0.0, 1.0)
 
 
+var _opened := false  # 宝箱已开启（留原地成打开状态，不碰撞可走过）
+
+
 func _open() -> void:
+	# 播开箱动画（chest_open 系列），播完停在打开帧、关碰撞、发掉落信号，不销毁
+	_play_open()
+
+
+func _play_open() -> void:
+	_opened = true
+	set_process(false)  # 停止读条检测
+	_clear_bar()  # 清理读条（连根销毁，不残留）
+	var sf := SpriteFrames.new()
+	sf.add_animation("open")
+	sf.set_animation_speed("open", 8.0)
+	sf.set_animation_loop("open", false)
+	for f in CHEST_OPEN:
+		sf.add_frame("open", load(TRAP_DIR + f))
+	_sprite.sprite_frames = sf
+	_sprite.play("open")
 	var game = get_tree().get_first_node_in_group("game")
 	if game:
 		game.spawn_float_text(global_position, "开", Color("#e8c07a"))
+	# 播完掉落物，但宝箱本体留在原地（打开状态）
 	destroyed.emit(self)
-	queue_free()
+	# 关闭碰撞，玩家可走过（不再是障碍/索敌目标/视野遮挡）
+	$CollisionShape2D.set_deferred("disabled", true)
+	remove_from_group("destructibles")
 
 
 ## 障碍用武器伤害打；宝箱免疫一切攻击（只能贴近读条）
