@@ -8,6 +8,9 @@ signal destroyed(d)
 
 enum Kind { OBSTACLE, CHEST }
 
+const OBSTACLE_SPRITE := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/box_1/box_1_1.png"
+const CHEST_SPRITE := "res://assets/tiles/chest.png"
+
 @export var obstacle_hp := 90.0
 @export var chest_open_time := 3.5  # 贴近读条秒数
 @export var chest_open_range := 40.0  # 触发读条的距离
@@ -35,17 +38,15 @@ var _sprite: Sprite2D
 func setup(k: Kind, t: Vector2i) -> void:
 	kind = k
 	tile = t
+	_body.visible = false  # 两种都用 sprite，隐藏占位色块
+	_sprite = Sprite2D.new()
+	_sprite.scale = Vector2(2.0, 2.0)
 	if kind == Kind.OBSTACLE:
 		hp = obstacle_hp
-		_body.color = Color("#8b6f47")  # 障碍暂留色块（木箱/石块 sprite 后补）
-		_body.polygon = _square_poly(13.0)
+		_sprite.texture = load(OBSTACLE_SPRITE)  # 石纹箱
 	else:
-		# 宝箱用 tileset 现成 sprite
-		_body.visible = false
-		_sprite = Sprite2D.new()
-		_sprite.texture = load("res://assets/tiles/chest.png")
-		_sprite.scale = Vector2(2.0, 2.0)
-		add_child(_sprite)
+		_sprite.texture = load(CHEST_SPRITE)     # 关闭宝箱
+	add_child(_sprite)
 
 
 ## 宝箱贴近读条

@@ -75,7 +75,13 @@ func blocks_vision(t: Vector2i) -> bool:
 func unlock_exits() -> void:
 	for rec in exits:
 		rec.unlocked = true
-		rec.marker.color = Color("#22c55e")
+		# 点亮火把：从昏暗转为明亮，并加一圈暖光晕示意"可撤离"
+		rec.marker.modulate = Color(1.3, 1.15, 0.7)
+		var glow := Polygon2D.new()
+		glow.polygon = Player.circle_poly(20.0, 24)
+		glow.color = Color(1.0, 0.8, 0.4, 0.22)
+		glow.z_index = -1
+		rec.marker.add_child(glow)
 
 
 func _build() -> void:
@@ -178,6 +184,9 @@ func find_path(from: Vector2, to: Vector2) -> PackedVector2Array:
 	return pts
 
 
+const TORCH_SPRITE := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/torch/torch_1.png"
+
+
 func _make_exit(center: Vector2, t: Vector2i) -> Dictionary:
 	var area := Area2D.new()
 	area.collision_layer = 0
@@ -186,10 +195,11 @@ func _make_exit(center: Vector2, t: Vector2i) -> Dictionary:
 	var shape := RectangleShape2D.new()
 	shape.size = Vector2(TILE - 4, TILE - 4)
 	cs.shape = shape
-	var marker := Polygon2D.new()
-	marker.polygon = PackedVector2Array([
-		Vector2(-13, -13), Vector2(13, -13), Vector2(13, 13), Vector2(-13, 13)])
-	marker.color = Color("#7f1d1d")
+	# 撤离门：火把 sprite（熄=锁定暗色，燃=解锁亮起发光）
+	var marker := Sprite2D.new()
+	marker.texture = load(TORCH_SPRITE)
+	marker.scale = Vector2(2.2, 2.2)
+	marker.modulate = Color(0.35, 0.35, 0.4)  # 锁定：昏暗
 	area.add_child(cs)
 	area.add_child(marker)
 	add_child(area)
