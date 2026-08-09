@@ -10,3 +10,4 @@ damage = 9.0
 cooldown = 0.45
 attack_range = 240.0
 color = Color(0.49, 0.827, 0.988, 1)
+sprite_key = "elite"

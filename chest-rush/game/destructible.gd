@@ -29,16 +29,23 @@ func _ready() -> void:
 	add_to_group("destructibles")
 
 
+var _sprite: Sprite2D
+
+
 func setup(k: Kind, t: Vector2i) -> void:
 	kind = k
 	tile = t
 	if kind == Kind.OBSTACLE:
 		hp = obstacle_hp
+		_body.color = Color("#8b6f47")  # 障碍暂留色块（木箱/石块 sprite 后补）
 		_body.polygon = _square_poly(13.0)
-		_body.color = Color("#8b6f47")
 	else:
-		_body.polygon = _square_poly(12.0)
-		_body.color = Color("#c98a2d")
+		# 宝箱用 tileset 现成 sprite
+		_body.visible = false
+		_sprite = Sprite2D.new()
+		_sprite.texture = load("res://assets/tiles/chest.png")
+		_sprite.scale = Vector2(2.0, 2.0)
+		add_child(_sprite)
 
 
 ## 宝箱贴近读条
@@ -114,13 +121,14 @@ func take_damage(n: float, _from_pos := Vector2.ZERO, color := Color(1, 1, 1)) -
 
 
 func _shake() -> void:
-	_body.modulate = Color(2.0, 2.0, 2.0)
+	var node: CanvasItem = _sprite if (kind == Kind.CHEST and _sprite != null) else _body
+	node.modulate = Color(2.0, 2.0, 2.0)
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(_body, "modulate", Color(1, 1, 1), 0.15)
-	var p0 := _body.position
-	tw.tween_property(_body, "position", p0 + Vector2(randf_range(-2, 2), randf_range(-2, 2)), 0.05)
-	tw.tween_property(_body, "position", p0, 0.1)
+	tw.tween_property(node, "modulate", Color(1, 1, 1), 0.15)
+	var p0: Vector2 = (node as Node2D).position
+	tw.tween_property(node, "position", p0 + Vector2(randf_range(-2, 2), randf_range(-2, 2)), 0.05)
+	tw.tween_property(node, "position", p0, 0.1)
 
 
 func _square_poly(half: float) -> PackedVector2Array:

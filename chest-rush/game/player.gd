@@ -16,16 +16,16 @@ var weapons: Array = []
 
 const WeaponScript := preload("res://game/weapon.gd")
 
-@onready var _body: Polygon2D = $Pivot/Body
+@onready var _pivot: Node2D = $Pivot
+var _sprite: AnimatedSprite2D
 
 
 func _ready() -> void:
 	hp = max_hp
 	add_to_group("player")
-	# 朝 +X 的三角（视觉朝向保留，随移动方向转）
-	_body.polygon = PackedVector2Array([
-		Vector2(16, 0), Vector2(-10, 11), Vector2(-6, 0), Vector2(-10, -11)])
-	_body.color = Color("#4ade80")
+	# 用 dungeon 像素 sprite（priest 驭鬼者），替代色块三角
+	_sprite = _make_sprite(Art.frames_of("player"))
+	_pivot.add_child(_sprite)
 	# 挂 3 只鬼（本关固定装备，来自 LOADOUT 的 .tres）
 	for i in Weapon.LOADOUT.size():
 		var w := Weapon.new()
@@ -34,14 +34,31 @@ func _ready() -> void:
 		weapons.append(w)
 
 
+func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
+	var sf := SpriteFrames.new()
+	sf.add_animation("idle")
+	sf.set_animation_speed("idle", 6.0)
+	sf.set_animation_loop("idle", true)
+	for p in paths:
+		var tex := load(p)
+		if tex:
+			sf.add_frame("idle", tex)
+	var s := AnimatedSprite2D.new()
+	s.sprite_frames = sf
+	s.scale = Vector2(2.0, 2.0)  # 16px 放大到 ~32px 贴合格子
+	s.play("idle")
+	return s
+
+
 func _physics_process(_delta: float) -> void:
 	if not alive:
 		return
 	var dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	velocity = dir * base_speed * speed_mult
 	move_and_slide()
-	if dir.length() > 0.01:
-		$Pivot.rotation = dir.angle()
+	# 像素 sprite 不旋转（会糊），用水平翻转表左右朝向
+	if abs(dir.x) > 0.01:
+		_sprite.flip_h = dir.x < 0.0
 
 
 func set_damage_mult(mult: float) -> void:
@@ -68,9 +85,9 @@ func heal(n: float) -> void:
 
 
 func _flash_body(c: Color) -> void:
-	_body.color = c
+	_sprite.modulate = c
 	var tw := create_tween()
-	tw.tween_property(_body, "color", Color("#4ade80"), 0.18)
+	tw.tween_property(_sprite, "modulate", Color(1, 1, 1), 0.18)
 
 
 static func circle_poly(r: float, n := 16) -> PackedVector2Array:

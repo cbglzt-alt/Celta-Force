@@ -8,33 +8,39 @@ var kind: Kind
 var amount := 0
 var fog: Node2D
 
+var _visual: Node2D
+
 @onready var _body: Polygon2D = $Body
 
 
 func _ready() -> void:
 	add_to_group("pickups")
 	body_entered.connect(_on_body_entered)
-	# 呼吸缩放
-	var tw := create_tween().set_loops()
-	tw.tween_property(_body, "scale", Vector2(1.15, 1.15), 0.5).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(_body, "scale", Vector2(0.9, 0.9), 0.5).set_trans(Tween.TRANS_SINE)
 
 
 func setup(k: Kind, amt: int, fog_ref: Node2D) -> void:
 	kind = k
 	amount = amt
 	fog = fog_ref
+	# 掉落物用 tileset 现成 sprite：金币/蓝瓶(视野)/钥匙(任务)
+	var tex_path := ""
 	match kind:
 		Kind.GOLD:
-			_body.polygon = Player.circle_poly(7.0, 8)
-			_body.color = Color("#facc15")
+			tex_path = "res://assets/tiles/gold.png"
 		Kind.VISION:
-			_body.polygon = PackedVector2Array([
-				Vector2(0, -9), Vector2(9, 0), Vector2(0, 9), Vector2(-9, 0)])
-			_body.color = Color("#22d3ee")
+			tex_path = "res://assets/tiles/vision.png"
 		Kind.QUEST:
-			_body.polygon = _star_poly(11.0, 5.0)
-			_body.color = Color("#e879f9")
+			tex_path = "res://assets/tiles/quest.png"
+	_body.visible = false  # 隐藏占位色块
+	var s := Sprite2D.new()
+	s.texture = load(tex_path)
+	s.scale = Vector2(2.0, 2.0)
+	add_child(s)
+	_visual = s
+	# 呼吸缩放（作用在 sprite 上）
+	var tw := create_tween().set_loops()
+	tw.tween_property(_visual, "scale", Vector2(2.3, 2.3), 0.5).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_visual, "scale", Vector2(1.8, 1.8), 0.5).set_trans(Tween.TRANS_SINE)
 
 
 func _process(_delta: float) -> void:
@@ -57,12 +63,3 @@ func _on_body_entered(body: Node2D) -> void:
 	if game:
 		game.collect(self)
 	queue_free()
-
-
-func _star_poly(r1: float, r2: float, points := 5) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in points * 2:
-		var r := r1 if i % 2 == 0 else r2
-		var a := -PI / 2 + PI * i / points
-		pts.append(Vector2(cos(a), sin(a)) * r)
-	return pts

@@ -10,3 +10,4 @@ enum Pattern { SLASH, BOLT, AURA }
 @export var cooldown := 0.5        # 两次开火间隔（秒）
 @export var attack_range := 95.0   # 索敌/命中半径（像素）
 @export var color := Color.WHITE
+@export var sprite_key := ""       # Art.FRAMES 里的键：刀=enemy 矢=elite 域=ghost_domain

@@ -15,7 +15,7 @@ var damage_mult := 1.0  # 全局伤害倍率（attack 强化乘入）
 
 var _cool := 0.0
 var _player: Node2D
-var _marker: Polygon2D
+var _marker: Node2D
 var _space: PhysicsDirectSpaceState2D
 var _los_query: PhysicsRayQueryParameters2D
 
@@ -38,9 +38,14 @@ func _src() -> Vector2:
 func setup(idx: int, player_ref: Node2D) -> void:
 	data = load(LOADOUT[idx])
 	_player = player_ref
-	_marker = Polygon2D.new()
-	_marker.polygon = Player.circle_poly(5.0, 6)
-	_marker.color = data.color
+	# 鬼的可视化：有 sprite_key 用 dungeon 像素 sprite，否则退回色点
+	if data.sprite_key != "" and Art.FRAMES.has(data.sprite_key):
+		_marker = _make_sprite(Art.frames_of(data.sprite_key))
+	else:
+		var dot := Polygon2D.new()
+		dot.polygon = Player.circle_poly(5.0, 6)
+		dot.color = data.color
+		_marker = dot
 	add_child(_marker)
 	_space = get_world_2d().direct_space_state
 	# 视线检测：只撞墙体与障碍/宝箱（层 4），忽略敌人(2)/玩家(1)
@@ -53,6 +58,22 @@ func setup(idx: int, player_ref: Node2D) -> void:
 		ring.color = Color(data.color, 0.08)
 		ring.z_index = -1
 		add_child(ring)
+
+
+func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
+	var sf := SpriteFrames.new()
+	sf.add_animation("idle")
+	sf.set_animation_speed("idle", 6.0)
+	sf.set_animation_loop("idle", true)
+	for p in paths:
+		var tex := load(p)
+		if tex:
+			sf.add_frame("idle", tex)
+	var s := AnimatedSprite2D.new()
+	s.sprite_frames = sf
+	s.scale = Vector2(1.4, 1.4)  # 鬼是挂件，比主角小一号
+	s.play("idle")
+	return s
 
 
 ## 两点间是否被"途中"的墙/障碍/宝箱阻挡（攻击不可穿墙）。

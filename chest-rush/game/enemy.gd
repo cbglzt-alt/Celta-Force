@@ -27,10 +27,32 @@ var _base_color := Color("#ef4444")
 @onready var _hit_area: Area2D = $HitArea
 
 
+var _sprite: AnimatedSprite2D
+
+
 func _ready() -> void:
 	add_to_group("enemies")
-	_body.polygon = Player.circle_poly(12.0, 14)
-	_body.color = _base_color
+	# 用 dungeon 像素 sprite（skeleton 鬼奴），替代色块圆
+	_sprite = _make_sprite(Art.frames_of("enemy"))
+	add_child(_sprite)
+	# 隐藏旧色块体（保留节点以免破坏场景引用）
+	_body.visible = false
+
+
+func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
+	var sf := SpriteFrames.new()
+	sf.add_animation("idle")
+	sf.set_animation_speed("idle", 6.0)
+	sf.set_animation_loop("idle", true)
+	for p in paths:
+		var tex := load(p)
+		if tex:
+			sf.add_frame("idle", tex)
+	var s := AnimatedSprite2D.new()
+	s.sprite_frames = sf
+	s.scale = Vector2(2.0, 2.0)
+	s.play("idle")
+	return s
 
 
 ## 由 Game 在 add_child 后调用
@@ -54,7 +76,7 @@ func apply_enrage() -> void:
 	speed *= DATA.enrage_speed_mult
 	contact_cooldown *= DATA.enrage_cooldown_mult
 	_base_color = Color("#ff7b00")
-	_body.color = _base_color
+	_sprite.modulate = _base_color
 
 
 func _physics_process(delta: float) -> void:
@@ -82,7 +104,9 @@ func _physics_process(delta: float) -> void:
 			dir = to_player.normalized()
 	velocity = dir * speed
 	move_and_slide()
-	rotation = velocity.angle() if velocity.length() > 1.0 else rotation
+	# 像素 sprite 不旋转，用水平翻转表朝向
+	if abs(velocity.x) > 1.0:
+		_sprite.flip_h = velocity.x < 0.0
 
 	_touch_timer -= delta
 	if _touch_timer <= 0.0:
@@ -112,6 +136,6 @@ func take_damage(n: float, from_pos: Vector2, color := Color(1, 1, 1)) -> void:
 
 
 func _flash() -> void:
-	_body.color = Color(1, 1, 1)
+	_sprite.modulate = Color(3.0, 3.0, 3.0)
 	var tw := create_tween()
-	tw.tween_property(_body, "color", _base_color, 0.12)
+	tw.tween_property(_sprite, "modulate", _base_color if enraged else Color(1, 1, 1), 0.12)

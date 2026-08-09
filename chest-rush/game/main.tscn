@@ -10,6 +10,9 @@ script = ExtResource("1")
 
 [node name="World" type="Node2D" parent="."]
 
+[node name="Atmosphere" type="CanvasModulate" parent="."]
+color = Color(0.72, 0.74, 0.88, 1.0)
+
 [node name="LevelMap" type="Node2D" parent="World"]
 script = ExtResource("2")
 

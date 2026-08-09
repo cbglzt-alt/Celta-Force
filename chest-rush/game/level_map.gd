@@ -84,9 +84,8 @@ func _build() -> void:
 	for row in MAP:
 		assert(row.length() == width, "地图行宽不一致: %s" % row)
 
-	var bg := GridBG.new()
-	bg.setup(width, height, TILE)
-	add_child(bg)
+	# 地板：用 dungeon 石板瓦片平铺（替代纯色背景）
+	_build_floor()
 
 	var wall_body := StaticBody2D.new()
 	wall_body.collision_layer = 4
@@ -125,6 +124,7 @@ func _build() -> void:
 				"P":
 					player_start = center
 
+	wall_visual.tex = load("res://assets/tiles/wall_top.png")
 	add_child(wall_body)
 	add_child(wall_visual)
 	assert(not chests.is_empty(), "地图没有宝箱")
@@ -213,32 +213,51 @@ func _on_destructible_destroyed(d) -> void:
 	destructible_destroyed.emit(d)
 
 
-## 地板与网格线
-class GridBG extends Node2D:
+## 地板：用 dungeon 石板瓦片平铺（放大 2 倍 + 淡网格线），替代纯色背景
+func _build_floor() -> void:
+	var f := FloorBG.new()
+	f.setup(width, height, TILE, load("res://assets/tiles/floor.png"))
+	add_child(f)
+
+
+## 地板：瓦片贴图平铺 + 淡网格
+class FloorBG extends Node2D:
 	var w: int
 	var h: int
 	var ts: int
+	var tex: Texture2D
 
-	func setup(_w: int, _h: int, _ts: int) -> void:
+	func setup(_w: int, _h: int, _ts: int, _tex: Texture2D) -> void:
 		w = _w
 		h = _h
 		ts = _ts
+		tex = _tex
 		z_index = -10
 
 	func _draw() -> void:
-		draw_rect(Rect2(0, 0, w * ts, h * ts), Color("#262a35"))
-		var line := Color("#2f3442")
+		# 逐格绘制，draw_texture_rect 拉伸 16px 瓦片到 32px 格
+		var cell := Vector2(ts, ts)
+		for y in h:
+			for x in w:
+				draw_texture_rect(tex, Rect2(Vector2(x * ts, y * ts), cell), false)
+		# 淡网格线（保持格子可读性）
+		var line := Color(0, 0, 0, 0.18)
 		for x in w + 1:
 			draw_line(Vector2(x * ts, 0), Vector2(x * ts, h * ts), line)
 		for y in h + 1:
 			draw_line(Vector2(0, y * ts), Vector2(w * ts, y * ts), line)
 
 
-## 墙体一次性绘制
+## 墙体一次性绘制： dungeon 砖纹瓦片 + 深色描边
 class WallVisual extends Node2D:
 	var rects: Array[Rect2] = []
+	var tex: Texture2D
 
 	func _draw() -> void:
 		for r in rects:
-			draw_rect(r, Color("#5b6472"))
-			draw_rect(r, Color("#6e7787"), false, 2.0)
+			if tex:
+				draw_texture_rect(tex, r, false)
+				draw_rect(r, Color(0, 0, 0, 0.25), false, 1.0)  # 勾边分出格子
+			else:
+				draw_rect(r, Color("#4a3b52"))
+				draw_rect(r, Color("#6b5578"), false, 2.0)
