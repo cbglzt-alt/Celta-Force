@@ -31,6 +31,7 @@ var tile := Vector2i.ZERO
 
 var _open_progress := 0.0
 var _opening := false
+var _obstacle_pick := 0
 var _player: Node2D
 var _progress_bar: ColorRect
 
@@ -58,8 +59,8 @@ func setup(k: Kind, t: Vector2i) -> void:
 	if kind == Kind.OBSTACLE:
 		hp = obstacle_hp
 		# 按格子坐标定一种箱型，同一格每次进图都一致（不随机闪变）
-		var pick := int(abs(t.x * 7 + t.y * 13)) % OBSTACLE_SETS.size()
-		frames = OBSTACLE_SETS[pick]
+		_obstacle_pick = int(abs(t.x * 7 + t.y * 13)) % OBSTACLE_SETS.size()
+		frames = OBSTACLE_SETS[_obstacle_pick]
 	else:
 		frames = CHEST_CLOSED
 	for f in frames:
@@ -148,10 +149,7 @@ func _play_open() -> void:
 		sf.add_frame("open", load(TRAP_DIR + f))
 	_sprite.sprite_frames = sf
 	_sprite.play("open")
-	var game = get_tree().get_first_node_in_group("game")
-	if game:
-		game.spawn_float_text(global_position, "开", Color("#e8c07a"))
-	# 播完掉落物，但宝箱本体留在原地（打开状态）
+	# 播完掉落物，但宝箱本体留在原地（打开状态）——动画即反馈，无需文字
 	destroyed.emit(self)
 	# 关闭碰撞，玩家可走过（不再是障碍/索敌目标/视野遮挡）
 	$CollisionShape2D.set_deferred("disabled", true)
@@ -165,15 +163,34 @@ func take_damage(n: float, _from_pos := Vector2.ZERO, color := Color(1, 1, 1)) -
 	hp -= n
 	_shake()
 	var game = get_tree().get_first_node_in_group("game")
-	if game:
-		game.spawn_float_text(global_position, "-%d" % int(n) if hp > 0 else "碎", color)
+	if game and hp > 0:
+		game.spawn_float_text(global_position, "-%d" % int(n), color)
 	if hp <= 0:
-		destroyed.emit(self)
-		queue_free()
+		_break_open()  # 打烂：播 open 留存（开盖/碎裂可走过），不销毁
+
+
+## 障碍物被打烂：播开盖/碎裂动画，留原地成破损状态（不碰撞可走过），掉少量金币
+func _break_open() -> void:
+	_opened = true
+	set_process(false)
+	var sf := SpriteFrames.new()
+	sf.add_animation("open")
+	sf.set_animation_speed("open", 8.0)
+	sf.set_animation_loop("open", false)
+	# 障碍箱的"开"：播它的后几帧（破损/塌陷感），用同一组帧的倒放即可
+	var frames: Array = OBSTACLE_SETS[_obstacle_pick]
+	for f in frames:
+		sf.add_frame("open", load(TRAP_DIR + f))
+	_sprite.sprite_frames = sf
+	_sprite.play("open")
+	_sprite.modulate = Color(0.6, 0.55, 0.6)  # 变暗示意已破损
+	destroyed.emit(self)
+	$CollisionShape2D.set_deferred("disabled", true)
+	remove_from_group("destructibles")
 
 
 func _shake() -> void:
-	var node: CanvasItem = _sprite if (kind == Kind.CHEST and _sprite != null) else _body
+	var node: CanvasItem = _sprite if _sprite != null else _body
 	node.modulate = Color(2.0, 2.0, 2.0)
 	var tw := create_tween()
 	tw.set_parallel(true)
