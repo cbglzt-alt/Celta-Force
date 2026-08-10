@@ -4,7 +4,6 @@ extends CanvasLayer
 var game: Node2D
 var _font: Font
 
-var _hp_fg: ColorRect
 var _hp_text: Label
 var _gold_label: Label
 var _quest_label: Label
@@ -44,8 +43,8 @@ func refresh() -> void:
 	if game == null or game.player == null:
 		return
 	var p = game.player
-	_hp_fg.size.x = 210.0 * clampf(p.hp / p.max_hp, 0.0, 1.0)
 	_hp_text.text = "HP %d/%d" % [maxi(int(p.hp), 0), int(p.max_hp)]
+	p.refresh_hp_bar()
 	_gold_label.text = "金币 %d" % game.gold
 	_quest_label.text = "任务道具 %d/%d" % [game.quest_items, game.quest_target]
 	if game.extract_running():
@@ -132,20 +131,12 @@ func _restart() -> void:
 # ---------- UI 构建 ----------
 
 func _build_ui() -> void:
-	# 左上：HP / 金币 / 任务
+	# 左上：HP 数值 / 金币 / 任务（血条在主角头顶）
 	var tl := VBoxContainer.new()
 	tl.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	tl.position = Vector2(14, 10)
 	tl.add_theme_constant_override("separation", 4)
 	add_child(tl)
-	var hp_bg := ColorRect.new()
-	hp_bg.color = Color("#3f3f46")
-	hp_bg.custom_minimum_size = Vector2(210, 20)
-	tl.add_child(hp_bg)
-	_hp_fg = ColorRect.new()
-	_hp_fg.color = Color("#22c55e")
-	_hp_fg.size = Vector2(210, 20)
-	hp_bg.add_child(_hp_fg)
 	_hp_text = _mk_label(tl, "HP", 14)
 	_gold_label = _mk_label(tl, "", 16)
 	_gold_label.add_theme_color_override("font_color", Color("#facc15"))

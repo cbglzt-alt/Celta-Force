@@ -19,6 +19,11 @@ const WeaponScript := preload("res://game/weapon.gd")
 
 @onready var _pivot: Node2D = $Pivot
 var _sprite: AnimatedSprite2D
+var _hp_bar: ColorRect
+var _hp_bar_bg: ColorRect
+
+const HP_BAR_W := 36.0
+const HP_BAR_H := 5.0
 
 
 var _anim := "idle"
@@ -39,12 +44,35 @@ func _ready() -> void:
 	_sprite.scale = Vector2(2.0, 2.0)
 	_sprite.play("idle")
 	_pivot.add_child(_sprite)
+	_make_hp_bar()
 	# 挂 3 只鬼（本关固定装备，来自 LOADOUT 的 .tres）
 	for i in Weapon.LOADOUT.size():
 		var w := Weapon.new()
 		add_child(w)
 		w.setup(i, self)
 		weapons.append(w)
+
+
+## 头顶常驻血条（观察受击）；数值仍在 HUD 左上角
+func _make_hp_bar() -> void:
+	_hp_bar_bg = ColorRect.new()
+	_hp_bar_bg.color = Color(0, 0, 0, 0.65)
+	_hp_bar_bg.size = Vector2(HP_BAR_W, HP_BAR_H)
+	_hp_bar_bg.position = Vector2(-HP_BAR_W * 0.5, -30)
+	_hp_bar_bg.z_index = 15
+	_hp_bar_bg.name = "HpBarBg"
+	add_child(_hp_bar_bg)
+	_hp_bar = ColorRect.new()
+	_hp_bar.color = Color("#22c55e")
+	_hp_bar.size = Vector2(HP_BAR_W, HP_BAR_H)
+	_hp_bar_bg.add_child(_hp_bar)
+	refresh_hp_bar()
+
+
+func refresh_hp_bar() -> void:
+	if _hp_bar == null or max_hp <= 0.0:
+		return
+	_hp_bar.size.x = HP_BAR_W * clampf(hp / max_hp, 0.0, 1.0)
 
 
 func _play(name: String) -> void:
@@ -116,6 +144,7 @@ func take_damage(n: float) -> void:
 	if not alive:
 		return
 	hp -= n
+	refresh_hp_bar()
 	_flash_body(Color("#ef4444"))
 	if alive:
 		_play("hurt")  # 受击后仰
@@ -130,6 +159,7 @@ func take_damage(n: float) -> void:
 
 func heal(n: float) -> void:
 	hp = minf(hp + n, max_hp)
+	refresh_hp_bar()
 
 
 func _flash_body(c: Color) -> void:
