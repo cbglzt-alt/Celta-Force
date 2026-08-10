@@ -64,7 +64,8 @@ func setup(idx: int, player_ref: Node2D) -> void:
 	if data.pattern == WeaponData.Pattern.AURA:
 		var ring := Polygon2D.new()
 		ring.polygon = _ring_poly(data.attack_range, 48)
-		ring.color = Color(data.color, 0.14)
+		# 范围圈保持原紫；伤害字/HUD 用 data.color（火焰红）
+		ring.color = Color(0.753, 0.518, 0.988, 0.14)
 		ring.z_index = -1
 		add_child(ring)
 
