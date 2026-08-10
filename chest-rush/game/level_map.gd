@@ -41,6 +41,7 @@ var height: int
 var walls: Dictionary = {}      # Vector2i -> true
 var obstacles: Dictionary = {}  # Vector2i -> Destructible (存活时挡视野)
 var chests: Array = []
+var chest_tiles: Dictionary = {}  # Vector2i -> true（宝箱格，寻路不可通行）
 var spawn_points: Array[Vector2] = []
 var player_start := Vector2.ZERO
 var exits: Array = []           # Dictionary{area, marker, tile, unlocked}
@@ -70,6 +71,25 @@ func blocks_vision(t: Vector2i) -> bool:
 		return true
 	var o = obstacles.get(t)
 	return o != null and is_instance_valid(o)
+
+
+## 房间探测：从某格向四周扩散到墙，返回房间矩形（铺满整个房间）。
+## 供敲门鬼危险区用。center_t 为该格坐标，max_half 为最大半径上限（格数）。
+func room_square(center_t: Vector2i, max_half := 8) -> Rect2i:
+	var left := 0
+	var right := 0
+	var up := 0
+	var down := 0
+	while left < max_half and not blocks_vision(center_t + Vector2i(-(left + 1), 0)):
+		left += 1
+	while right < max_half and not blocks_vision(center_t + Vector2i(right + 1, 0)):
+		right += 1
+	while up < max_half and not blocks_vision(center_t + Vector2i(0, -(up + 1))):
+		up += 1
+	while down < max_half and not blocks_vision(center_t + Vector2i(0, down + 1)):
+		down += 1
+	# 铺满整个矩形房间（不截正方形）
+	return Rect2i(center_t - Vector2i(left, up), Vector2i(left + right + 1, up + down + 1))
 
 
 func unlock_exits() -> void:
@@ -123,6 +143,7 @@ func _build() -> void:
 						obstacles[t] = d
 					else:
 						chests.append(d)
+						chest_tiles[t] = true
 				"E":
 					exits.append(_make_exit(center, t))
 				"S":
@@ -156,8 +177,8 @@ func _build_pathfinding() -> void:
 			var t := Vector2i(x, y)
 			var id := _pid(t)
 			_astar.add_point(id, tile_to_world(t))
-			# 墙与存活障碍不可通行；宝箱可通行（怪可越过）
-			if walls.has(t) or (obstacles.get(t) != null and is_instance_valid(obstacles[t])):
+			# 墙、存活障碍、宝箱格均不可通行（碰撞体挡路，绕行而非卡住）
+			if walls.has(t) or chest_tiles.has(t) or (obstacles.get(t) != null and is_instance_valid(obstacles[t])):
 				_astar.set_point_disabled(id, true)
 	# 连接四方向相邻格
 	for y in height:
@@ -221,6 +242,9 @@ func _on_destructible_destroyed(d) -> void:
 	if obstacles.get(d.tile) == d:
 		obstacles.erase(d.tile)
 		notify_walkable_changed(d.tile)  # 开放该格，怪物可通行
+	elif chest_tiles.has(d.tile):
+		chest_tiles.erase(d.tile)
+		notify_walkable_changed(d.tile)  # 宝箱开盖/打烂后可通行
 	destructible_destroyed.emit(d)
 
 
@@ -232,9 +256,10 @@ const WALL_TORCH := ["torch/side_torch_1.png", "torch/side_torch_2.png", "torch/
 const CANDLE := ["torch/candlestick_2_1.png", "torch/candlestick_2_2.png", "torch/candlestick_2_3.png", "torch/candlestick_2_4.png"]
 ## 地面杂物：破砖/碎骨（单帧）
 const FLOOR_PROPS: Array = [
-	["res://assets/tiles/debris_a.png"],   # 破砖
-	["res://assets/tiles/debris_c.png"],   # 碎骨堆
-	CANDLE,                                 # 烛台（动画）
+	["res://assets/tiles/dungeon/skull_and_bone.png"],  # 骷髅头+骨（诡异残骸）
+	["res://assets/tiles/dungeon/bone_shards.png"],     # 两块碎骨
+	["res://assets/tiles/dungeon/debris_a.png"],        # 破砖
+	CANDLE,                                              # 烛台（动画）
 ]
 
 func _build_decor() -> void:

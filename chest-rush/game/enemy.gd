@@ -14,6 +14,7 @@ var damage: float
 var gold_drop: int
 var contact_cooldown: float
 var enraged := false
+var stunned := false  # 被敲门鬼定身：锁移动
 
 var _player: Node2D
 var _fog: Node2D
@@ -23,6 +24,7 @@ var _path_idx := 0
 var _repath := 0.0
 var _touch_timer := 0.0
 var _base_color := Color("#ef4444")
+var _base_modulate := Color(1, 1, 1)
 
 @onready var _body: Polygon2D = $Body
 @onready var _hit_area: Area2D = $HitArea
@@ -110,12 +112,34 @@ func apply_enrage() -> void:
 	speed *= DATA.enrage_speed_mult
 	contact_cooldown *= DATA.enrage_cooldown_mult
 	_base_color = Color("#ff7b00")
+	_base_modulate = _base_color
 	_sprite.modulate = _base_color
+
+
+## 被敲门鬼定身：锁移动（友军误伤/清场风险收益）
+func apply_stun(duration: float) -> void:
+	if _dying:
+		return
+	stunned = true
+	_sprite.modulate = Color(0.6, 0.6, 1.0)
+	var game = get_tree().get_first_node_in_group("game")
+	if game:
+		game.spawn_float_text(global_position, "定!", Color("#93c5fd"))
+	await get_tree().create_timer(duration).timeout
+	if is_instance_valid(self) and not _dying:
+		stunned = false
+		_sprite.modulate = _base_modulate
 
 
 func _physics_process(delta: float) -> void:
 	if _player == null or not is_instance_valid(_player) or not _player.alive:
 		velocity = Vector2.ZERO
+		return
+	if stunned:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		if not _dying and not _attacking:
+			_play("idle")
 		return
 	# 寻路追击：周期性重算 A* 路径，沿路径走；近身则直冲
 	_repath -= delta
@@ -150,18 +174,24 @@ func _physics_process(delta: float) -> void:
 	if _touch_timer <= 0.0:
 		for b in _hit_area.get_overlapping_bodies():
 			if b.is_in_group("player"):
-				b.take_damage(damage)
 				_touch_timer = contact_cooldown
-				_play_attack()
+				_attack(b)  # 攻击动画与伤害同步：挥刀命中帧才结算
 				break
 
 
-## 近身攻击动画（播完回 idle/walk）
-func _play_attack() -> void:
+## 攻击与动画同步：播 attack 动画，在挥刀命中帧（约 40% 处）才结算伤害
+func _attack(target: Node2D) -> void:
 	if _dying or _attacking:
 		return
 	_attacking = true
 	_play("attack")
+	# 命中帧：动画进度 ~40%（9帧×9fps≈1s，命中约 0.4s）
+	var anim_len: float = _sprite.sprite_frames.get_frame_count("attack") / _sprite.sprite_frames.get_animation_speed("attack")
+	await get_tree().create_timer(anim_len * 0.4).timeout
+	if not _dying and is_instance_valid(target) and target.alive:
+		# 命中时仍须在范围内（抬手期间玩家可走位躲开）
+		if global_position.distance_to(target.global_position) < 55.0:
+			target.take_damage(damage)
 	await _sprite.animation_finished
 	_attacking = false
 	_anim = ""  # 强制下一帧重切回 walk/idle
@@ -220,4 +250,5 @@ func _show_hp_bar() -> void:
 func _flash() -> void:
 	_sprite.modulate = Color(3.0, 3.0, 3.0)
 	var tw := create_tween()
-	tw.tween_property(_sprite, "modulate", _base_color if enraged else Color(1, 1, 1), 0.12)
+	var restore := Color(0.6, 0.6, 1.0) if stunned else _base_modulate
+	tw.tween_property(_sprite, "modulate", restore, 0.12)

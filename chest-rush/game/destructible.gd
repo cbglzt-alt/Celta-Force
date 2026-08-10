@@ -9,13 +9,9 @@ signal destroyed(d)
 enum Kind { OBSTACLE, CHEST }
 
 const TRAP_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/"
-## 障碍物多帧动画（4 种箱型，各 4 帧）
-const OBSTACLE_SETS: Array = [
-	["box_1/box_1_1.png", "box_1/box_1_2.png", "box_1/box_1_3.png", "box_1/box_1_4.png"],
-	["box_2/box_2_1.png", "box_2/box_2_2.png", "box_2/box_2_3.png", "box_2/box_2_4.png"],
-	["mini_box_1/mini_box_1_1.png", "mini_box_1/mini_box_1_2.png", "mini_box_1/mini_box_1_3.png", "mini_box_1/mini_box_1_4.png"],
-	["mini_box_2/mini_box_2_1.png", "mini_box_2/mini_box_2_2.png", "mini_box_2/mini_box_2_3.png", "mini_box_2/mini_box_2_4.png"],
-]
+## 障碍物：mini_chest 小宝箱（closed 4帧 + open 4帧，统一形象不用随机 box）
+const OBSTACLE_CLOSED := ["mini_chest/mini_chest_1.png", "mini_chest/mini_chest_2.png", "mini_chest/mini_chest_3.png", "mini_chest/mini_chest_4.png"]
+const OBSTACLE_OPEN := ["mini_chest/mini_chest_open_1.png", "mini_chest/mini_chest_open_2.png", "mini_chest/mini_chest_open_3.png", "mini_chest/mini_chest_open_4.png"]
 ## 宝箱：关闭动画 + 打开动画（最明显的 chest 系列）
 const CHEST_CLOSED := ["chest/chest_1.png", "chest/chest_2.png", "chest/chest_3.png", "chest/chest_4.png"]
 const CHEST_OPEN := ["chest/chest_open_1.png", "chest/chest_open_2.png", "chest/chest_open_3.png", "chest/chest_open_4.png"]
@@ -31,7 +27,6 @@ var tile := Vector2i.ZERO
 
 var _open_progress := 0.0
 var _opening := false
-var _obstacle_pick := 0
 var _player: Node2D
 var _progress_bar: ColorRect
 
@@ -58,9 +53,7 @@ func setup(k: Kind, t: Vector2i) -> void:
 	var frames: Array
 	if kind == Kind.OBSTACLE:
 		hp = obstacle_hp
-		# 按格子坐标定一种箱型，同一格每次进图都一致（不随机闪变）
-		_obstacle_pick = int(abs(t.x * 7 + t.y * 13)) % OBSTACLE_SETS.size()
-		frames = OBSTACLE_SETS[_obstacle_pick]
+		frames = OBSTACLE_CLOSED  # 障碍统一 mini_chest 小宝箱
 	else:
 		frames = CHEST_CLOSED
 	for f in frames:
@@ -149,8 +142,11 @@ func _play_open() -> void:
 		sf.add_frame("open", load(TRAP_DIR + f))
 	_sprite.sprite_frames = sf
 	_sprite.play("open")
-	# 播完掉落物，但宝箱本体留在原地（打开状态）——动画即反馈，无需文字
+	# 播完掉落物，宝箱定格在 open 最后一帧（开盖亮金光），留原地不销毁
 	destroyed.emit(self)
+	await _sprite.animation_finished
+	_sprite.stop()
+	_sprite.frame = CHEST_OPEN.size() - 1  # 定格开盖亮金光的最后一帧
 	# 关闭碰撞，玩家可走过（不再是障碍/索敌目标/视野遮挡）
 	$CollisionShape2D.set_deferred("disabled", true)
 	remove_from_group("destructibles")
@@ -178,7 +174,7 @@ func _break_open() -> void:
 	sf.set_animation_speed("open", 8.0)
 	sf.set_animation_loop("open", false)
 	# 障碍箱的"开"：播它的后几帧（破损/塌陷感），用同一组帧的倒放即可
-	var frames: Array = OBSTACLE_SETS[_obstacle_pick]
+	var frames: Array = OBSTACLE_OPEN  # 打烂播 open 帧（开盖）
 	for f in frames:
 		sf.add_frame("open", load(TRAP_DIR + f))
 	_sprite.sprite_frames = sf

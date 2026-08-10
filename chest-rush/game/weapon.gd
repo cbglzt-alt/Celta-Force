@@ -16,6 +16,7 @@ var damage_mult := 1.0  # 全局伤害倍率（attack 强化乘入）
 var _cool := 0.0
 var _player: Node2D
 var _marker: Node2D
+var _marker_anim := "idle"
 var _space: PhysicsDirectSpaceState2D
 var _los_query: PhysicsRayQueryParameters2D
 
@@ -38,9 +39,9 @@ func _src() -> Vector2:
 func setup(idx: int, player_ref: Node2D) -> void:
 	data = load(LOADOUT[idx])
 	_player = player_ref
-	# 鬼的可视化：有 sprite_key 用 dungeon 像素 sprite，否则退回色点
+	# 鬼的可视化：有 sprite_key 用 dungeon 像素 sprite（含 attack 动画，近战挥刀用）
 	if data.sprite_key != "" and Art.FRAMES.has(data.sprite_key):
-		_marker = _make_sprite(Art.frames_of(data.sprite_key))
+		_marker = _make_ghost_sprite(data.sprite_key)
 	else:
 		var dot := Polygon2D.new()
 		dot.polygon = Player.circle_poly(5.0, 6)
@@ -74,6 +75,35 @@ func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
 	s.scale = Vector2(1.4, 1.4)  # 鬼是挂件，比主角小一号
 	s.play("idle")
 	return s
+
+
+## 鬼 sprite：近战刀鬼（skeleton）带 attack 挥刀动画；其余用 4 帧 idle
+func _make_ghost_sprite(sprite_key: String) -> AnimatedSprite2D:
+	if sprite_key == "enemy":
+		# 刀鬼 skeleton：装配 idle + attack（挥刀）
+		return AnimHelper.build_sprite({
+			"idle": Art.ANIM_DIR + "enemies-skeleton1_idle.png",
+			"attack": Art.ANIM_DIR + "enemies-skeleton1_attack.png",
+		}, 9.0, 1.4, 32)
+	# 矢（vampire）/域（skull）等：只 4 帧 idle
+	return _make_sprite(Art.frames_of(sprite_key))
+
+
+## 近战攻击时：刀鬼播挥刀动画（朝目标翻转），播完回 idle
+func _play_attack_anim(target: Node2D) -> void:
+	if not (_marker is AnimatedSprite2D):
+		return
+	var s := _marker as AnimatedSprite2D
+	if not (s.sprite_frames and s.sprite_frames.has_animation("attack")):
+		return
+	# 朝目标翻转
+	s.flip_h = target.global_position.x < _src().x
+	_marker_anim = "attack"
+	s.play("attack")
+	await s.animation_finished
+	_marker_anim = "idle"
+	if is_instance_valid(s):
+		s.play("idle")
 
 
 ## 两点间是否被"途中"的墙/障碍/宝箱阻挡（攻击不可穿墙）。
@@ -164,20 +194,8 @@ func _dmg() -> float:
 func _fire_slash(target: Node2D) -> void:
 	var src := _src()
 	var dir: Vector2 = (target.global_position - src).normalized()
-	# 弧光
-	var arc := PackedVector2Array([Vector2.ZERO])
-	for i in 9:
-		var a := lerpf(-0.7, 0.7, i / 8.0)
-		arc.append(Vector2(cos(a), sin(a)) * data.attack_range)
-	var slash := Polygon2D.new()
-	slash.polygon = arc
-	slash.color = Color(data.color, 0.6)
-	slash.rotation = dir.angle()
-	_world().add_child(slash)
-	slash.global_position = src
-	var tw := slash.create_tween()
-	tw.tween_property(slash, "modulate:a", 0.0, 0.15)
-	tw.tween_callback(slash.queue_free)
+	# 挥刀动画：刀鬼（skeleton）播 attack，替代扇形弧光
+	_play_attack_anim(target)
 	# 前方扇区内无遮挡的敌人
 	for e in get_tree().get_nodes_in_group("enemies"):
 		var to: Vector2 = e.global_position - src

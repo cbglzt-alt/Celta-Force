@@ -40,7 +40,14 @@ var _base_modulate := Color(1, 1, 1)
 
 var _sprite: AnimatedSprite2D
 var _door: Node2D          # 凭空浮现的门框
-var _danger_ring: Polygon2D  # 危险半径圈
+var _danger_rect := Rect2i()  # 危险房间正方形（格坐标）
+var _danger_tiles: Array = []  # 框选脉冲标记（square_up_down）
+var _spike_tiles: Array = []   # 地刺铺满（peaks）
+
+const IFACE_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/interface/"
+const SQUARE_FRAMES := ["square_up_down_1.png", "square_up_down_2.png", "square_up_down_3.png", "square_up_down_4.png"]
+const PEAKS_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/peaks/"
+const PEAKS_FRAMES := ["peaks_1.png", "peaks_2.png", "peaks_3.png", "peaks_4.png"]
 
 @onready var _body: Polygon2D = $Body
 @onready var _fx: Node2D = $Fx
@@ -185,14 +192,14 @@ func _chase(delta: float) -> void:
 	velocity = dir * speed
 
 
-## 驻足预告：面前凭空浮现门框 + 危险圈淡入（走位窗）
+## 驻足预告：门框浮现 + 危险房间（正方形）用框选脉冲标出（走位窗）
 func _start_telegraph() -> void:
 	_state = State.TELEGRAPH
 	_state_t = telegraph_time
 	var dir := Vector2.DOWN
 	if _player and is_instance_valid(_player):
 		dir = (_player.global_position - global_position).normalized()
-	# 门框（发光门框 = 用撤退门同款的方形框 + 竖柱，简化为发光门形）
+	# 门框
 	_door = Node2D.new()
 	_door.position = dir * 50.0
 	var frame := Polygon2D.new()
@@ -205,54 +212,145 @@ func _start_telegraph() -> void:
 	_door.add_child(inner)
 	_door.modulate.a = 0.0
 	_fx.add_child(_door)
-	var tw := _door.create_tween()
-	tw.tween_property(_door, "modulate:a", 1.0, 0.4)
-	# 危险半径圈淡入
-	_danger_ring = Polygon2D.new()
-	_danger_ring.polygon = Player.circle_poly(burst_radius, 40)
-	_danger_ring.color = Color(1.0, 0.2, 0.2, 0.12)
-	_danger_ring.z_index = -2
-	_danger_ring.modulate.a = 0.0
-	_fx.add_child(_danger_ring)
-	_danger_ring.create_tween().tween_property(_danger_ring, "modulate:a", 1.0, telegraph_time)
+	_door.create_tween().tween_property(_door, "modulate:a", 1.0, 0.4)
+	# 危险区 = 敲门鬼所在房间的正方形（取短边），square_up_down 框选脉冲标出
+	_danger_rect = _level.room_square(_level.world_to_tile(global_position), 8)
+	_mark_danger_zone()
 	_flash_text("咚！咚！", Color("#e879f9"))
 
 
-## 敲门读条：门框亮起、危险圈脉冲
+## 用框选脉冲瓦片标出危险房间边界（square_up_down 动画）
+func _mark_danger_zone() -> void:
+	_clear_danger_marks()
+	var ts: int = _level.TILE
+	# 沿正方形边界每格放一个框选脉冲标记
+	for x in range(_danger_rect.position.x, _danger_rect.end.x):
+		for y in [_danger_rect.position.y, _danger_rect.end.y - 1]:
+			_add_mark(Vector2i(x, y), ts)
+	for y in range(_danger_rect.position.y, _danger_rect.end.y):
+		for x in [_danger_rect.position.x, _danger_rect.end.x - 1]:
+			_add_mark(Vector2i(x, y), ts)
+
+
+## 危险区特效挂世界层：不随敲门鬼迷雾 visible=false 一起消失（离房后技能仍可见）
+func _fx_host() -> Node2D:
+	if _level != null and is_instance_valid(_level):
+		var host := _level.get_parent() as Node2D
+		if host:
+			return host
+	return _fx
+
+
+func _add_mark(t: Vector2i, ts: int) -> void:
+	if not _level.in_bounds(t) or _level.blocks_vision(t):
+		return
+	var s := AnimatedSprite2D.new()
+	var sf := SpriteFrames.new()
+	sf.add_animation("pulse")
+	sf.set_animation_speed("pulse", 6.0)
+	sf.set_animation_loop("pulse", true)
+	for f in SQUARE_FRAMES:
+		sf.add_frame("pulse", load(IFACE_DIR + f))
+	s.sprite_frames = sf
+	s.scale = Vector2(ts / 16.0, ts / 16.0)
+	s.z_index = 2
+	s.play("pulse")
+	_fx_host().add_child(s)
+	s.global_position = _level.tile_to_world(t)
+	_danger_tiles.append(s)
+
+
+func _clear_danger_marks() -> void:
+	for m in _danger_tiles:
+		if is_instance_valid(m):
+			m.queue_free()
+	_danger_tiles.clear()
+
+
+## 敲门读条：危险房间内地刺开始冒出（peaks 动画，压迫感递增）
 func _start_channel() -> void:
 	_state = State.CHANNEL
 	_state_t = channel_time
 	_interrupt_accum = 0.0
-	if _danger_ring:
-		var tw := _danger_ring.create_tween().set_loops(int(channel_time / 0.3))
-		tw.tween_property(_danger_ring, "modulate:a", 0.4, 0.15)
-		tw.tween_property(_danger_ring, "modulate:a", 1.0, 0.15)
+	_spawn_spikes()
 
 
-## 爆发：危险圈内所有目标定身+掉血
+## 在危险房间正方形内铺满地刺（从地里冒出的动画）
+func _spawn_spikes() -> void:
+	_clear_spikes()
+	var ts: int = _level.TILE
+	var host := _fx_host()
+	for x in range(_danger_rect.position.x, _danger_rect.end.x):
+		for y in range(_danger_rect.position.y, _danger_rect.end.y):
+			var t := Vector2i(x, y)
+			if not _level.in_bounds(t) or _level.blocks_vision(t):
+				continue
+			var s := AnimatedSprite2D.new()
+			var sf := SpriteFrames.new()
+			sf.add_animation("spike")
+			sf.set_animation_speed("spike", 7.0)
+			sf.set_animation_loop("spike", true)
+			for f in PEAKS_FRAMES:
+				sf.add_frame("spike", load(PEAKS_DIR + f))
+			s.sprite_frames = sf
+			s.scale = Vector2(ts / 16.0, ts / 16.0)
+			s.z_index = 2
+			s.play("spike")
+			host.add_child(s)
+			s.global_position = _level.tile_to_world(t)
+			_spike_tiles.append(s)
+	if "--probe-knocker" in OS.get_cmdline_user_args():
+		print("PROBE knocker._spawn_spikes n=%d host=%s self.visible=%s" % [
+			_spike_tiles.size(), host.name if host else "null", visible])
+
+
+func _clear_spikes() -> void:
+	for m in _spike_tiles:
+		if is_instance_valid(m):
+			m.queue_free()
+	_spike_tiles.clear()
+
+
+## 爆发：危险房间（矩形）内所有目标定身+掉血（先结算，再延迟清地刺）
 func _burst() -> void:
 	_state = State.COOLDOWN
 	_state_t = 1.0
-	# 圈闪白
-	if _danger_ring:
-		_danger_ring.color = Color(1.0, 0.9, 0.9, 0.5)
-		_danger_ring.create_tween().tween_property(_danger_ring, "modulate:a", 0.0, 0.4)
-	# 命中判定
-	var center := global_position
+	_clear_danger_marks()
+	# 命中判定立刻结算（不依赖 await；主角离房后技能照常生效）
+	var rect := Rect2(
+		Vector2(_danger_rect.position) * _level.TILE,
+		Vector2(_danger_rect.size) * _level.TILE)
 	if _player and is_instance_valid(_player) and _player.alive:
-		if center.distance_to(_player.global_position) <= burst_radius:
+		if rect.has_point(_player.global_position):
 			_player.take_damage(burst_damage)
 			_player.apply_stun(stun_duration)
-	# 低级敌鬼（杂兵）也被定身（story：低于其等级都定）
+	# 低级敌鬼（杂兵）定身+掉血（story：低于其等级都定）
+	var hit_n := 0
 	for e in get_tree().get_nodes_in_group("enemies"):
-		if e != self and e is Enemy and center.distance_to(e.global_position) <= burst_radius:
-			e.take_damage(burst_damage * 0.5, center, Color("#c084fc"))
+		if e == self or not is_instance_valid(e):
+			continue
+		if not (e is Enemy) or not rect.has_point(e.global_position):
+			continue
+		e.take_damage(burst_damage * 0.5, global_position, Color("#c084fc"))
+		if e.has_method("apply_stun"):
+			e.apply_stun(stun_duration)
+		hit_n += 1
+	if "--probe-knocker" in OS.get_cmdline_user_args():
+		print("PROBE knocker._burst hit_enemies=%d player_in=%s self.visible=%s" % [
+			hit_n,
+			_player != null and rect.has_point(_player.global_position),
+			visible])
 	_flash_text("开门！", Color("#f87171"))
 	# 清理门框
 	if _door:
 		_door.create_tween().tween_property(_door, "modulate:a", 0.0, 0.4)
 		_door.create_tween().tween_callback(_door.queue_free).set_delay(0.4)
 		_door = null
+	# 地刺在爆发后再留一拍（0.4s）才消散
+	if not _spike_tiles.is_empty():
+		await get_tree().create_timer(0.4).timeout
+		if is_instance_valid(self):
+			_clear_spikes()
 
 
 ## 被打断：门碎裂、回游走
@@ -261,9 +359,8 @@ func _interrupt() -> void:
 	_state = State.COOLDOWN
 	_state_t = 1.0
 	_cool_t = skill_cooldown
-	if _danger_ring:
-		_danger_ring.create_tween().tween_property(_danger_ring, "modulate:a", 0.0, 0.2)
-		_danger_ring = null
+	_clear_danger_marks()
+	_clear_spikes()
 	if _door:
 		# 门碎裂下沉
 		var tw := _door.create_tween()
@@ -299,16 +396,15 @@ func take_damage(n: float, from_pos: Vector2, color := Color(1, 1, 1)) -> void:
 		_die()
 
 
-## 死亡：播 death 动画，播完再销毁（保留门框/危险圈清理）
+## 死亡：播 death 动画，播完再销毁（保留门框/危险区清理）
 func _die() -> void:
 	alive = false
 	set_physics_process(false)
 	set_deferred("monitoring", false)
 	$CollisionShape2D.set_deferred("disabled", true)
 	# 清理技能特效
-	if _danger_ring:
-		_danger_ring.queue_free()
-		_danger_ring = null
+	_clear_danger_marks()
+	_clear_spikes()
 	if _door:
 		_door.queue_free()
 		_door = null

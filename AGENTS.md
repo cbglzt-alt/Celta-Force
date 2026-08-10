@@ -87,6 +87,27 @@
 - **"一定要做但当前阶段不做"的事，必须记进 `.thought/4.roadmap.md` 第三节（防遗忘清单）**：写清"为什么重要 + 什么时候做"，不许只在脑子里。roadmap 是顶层路径（不是 todo），随演进持续补充更新；进入新阶段先回读它，把该阶段的暂缓项捞出来排期。
 - **验证三板斧**：① `godot --headless --editor --quit` 刷新类缓存查语法；② `--headless --quit-after N` 查运行时错误；③ 需要看画面时用 CDP 截图（脚本 `build/cdp_shot.mjs`）。
 
+### 探针验证（改逻辑/数值后必做，"程序化的试玩"）
+
+改动游戏逻辑或数值时，**别只"看起来对"**——写一个一次性探针脚本实测。原理：`--headless --script` 跑一个继承 `SceneTree` 的脚本，加载主场景、操纵对象、print 断言结果。
+
+**最小示例**（`chest-rush/game/_probe.gd`，用完即删）：
+```gdscript
+extends SceneTree
+func _init() -> void:
+    var scene = load("res://game/main.tscn").instantiate()
+    root.add_child(scene)
+    await create_timer(1.0).timeout           # 等初始化
+    var game = root.get_node("Game")           # 拿主控
+    game._spawn_enemy(game.player.global_position + Vector2(200, 0))  # 操纵：刷怪
+    await create_timer(2.0).timeout           # 等它行动
+    print("结果=", ...)                         # 断言：打印关键字段
+    quit()
+```
+运行：`godot --headless --path chest-rush --script "res://game/_probe.gd"`
+
+**技巧**：`create_timer` 控时序；`root.find_children("*", "Enemy", true, false)` / `get_first_node_in_group` 找对象；直接读写内部字段（如 `enemy._anim`）验证状态。**改逻辑后跑一次探针，比开游戏手动试快得多。**
+
 ## Godot 工程备忘（踩过的坑）
 
 - **新增/重命名全局 `class_name` 后**，必须先跑 `--headless --editor --quit` 刷新类缓存，否则直接运行报 "Identifier not declared"。

@@ -74,6 +74,8 @@ func _ready() -> void:
 		_screenshot_mode()
 	if "--balance" in OS.get_cmdline_user_args():
 		_balance_mode()
+	if "--probe-knocker" in OS.get_cmdline_user_args():
+		_probe_knocker_mode()
 
 
 func _process(delta: float) -> void:
@@ -377,3 +379,80 @@ func _balance_mode() -> void:
 	print("BALANCE start: quest=%d interval=%.0fs cost_growth=%.2f" % [
 		quest_target, round_interval, upgrade_cost_growth])
 	player.died.connect(func(): print("BALANCE player died at wave=%d time=%.0fs" % [round_num, run_time]))
+
+
+## 敲门鬼探针：主角离房后技能是否仍铺地刺、并对房内杂兵定身+伤害
+## 用法：godot --headless --path chest-rush --quit-after 900 -- --probe-knocker
+func _probe_knocker_mode() -> void:
+	print("PROBE knocker start")
+	_round_timer.stop()
+	# 关掉玩家武器，避免探针窗口里把怪打死
+	player.set_damage_mult(0.0)
+	for w in player.weapons:
+		w.set_physics_process(false)
+
+	await get_tree().create_timer(0.2).timeout
+	round_num = 3
+	var room_pos: Vector2 = player.global_position
+	var k = KnockerScene.instantiate()
+	_world.add_child(k)
+	k.global_position = room_pos + Vector2(48, 0)
+	k.setup(round_num, false, player, fog, level)
+
+	var e = EnemyScene.instantiate()
+	_world.add_child(e)
+	e.global_position = room_pos + Vector2(-48, 0)
+	e.setup(round_num, false, player, fog, level)
+	e.set_physics_process(false)  # 探针：锁在房内，不追离房主角
+	var hp_before: float = e.hp
+
+	# 等出场无敌结束
+	await get_tree().create_timer(1.1).timeout
+	k._start_telegraph()
+	# 把杂兵钉在危险区中心（验证「范围内怪物」）
+	var mid: Vector2i = k._danger_rect.position + k._danger_rect.size / 2
+	e.global_position = level.tile_to_world(mid)
+	print("PROBE telegraph danger=%s marks=%d enemy_in_room=%s" % [
+		k._danger_rect, k._danger_tiles.size(),
+		Rect2(Vector2(k._danger_rect.position) * level.TILE, Vector2(k._danger_rect.size) * level.TILE).has_point(e.global_position)])
+
+	# 主角立刻离房（模拟你的观察路径）
+	var leave_pos: Vector2 = room_pos
+	if level.exits.size() > 0:
+		leave_pos = level.tile_to_world(level.exits[0].tile)
+	else:
+		leave_pos = room_pos + Vector2(600, 400)
+	player.global_position = leave_pos
+	fog.force_update()
+	await get_tree().process_frame
+	print("PROBE left_room knocker.visible=%s fog_visible=%s player_dist=%.0f" % [
+		k.visible, fog.is_visible_world(k.global_position),
+		k.global_position.distance_to(player.global_position)])
+
+	# 等到读条（地刺应已铺上）
+	await get_tree().create_timer(k.telegraph_time + 0.1).timeout
+	var spike_n: int = k._spike_tiles.size()
+	var spike_parent := "none"
+	var spike_under_knocker := false
+	if spike_n > 0 and is_instance_valid(k._spike_tiles[0]):
+		var pnode: Node = k._spike_tiles[0].get_parent()
+		spike_parent = pnode.name if pnode else "null"
+		spike_under_knocker = (pnode == k) or (pnode != null and pnode.get_parent() == k)
+	print("PROBE channel spikes=%d parent=%s under_knocker=%s knocker.visible=%s" % [
+		spike_n, spike_parent, spike_under_knocker, k.visible])
+
+	# 等到爆发结算
+	await get_tree().create_timer(k.channel_time + 0.15).timeout
+	var stunned_ok: bool = e.stunned
+	var dmg_ok: bool = e.hp < hp_before - 0.1
+	print("PROBE burst enemy.stunned=%s hp=%.1f->%.1f dmg_ok=%s" % [
+		stunned_ok, hp_before, e.hp, dmg_ok])
+
+	var pass_fx: bool = spike_n > 0 and not spike_under_knocker
+	var pass_hit: bool = stunned_ok and dmg_ok
+	if pass_fx and pass_hit:
+		print("PROBE RESULT PASS")
+	else:
+		print("PROBE RESULT FAIL fx=%s hit=%s" % [pass_fx, pass_hit])
+	await get_tree().create_timer(0.3).timeout
+	get_tree().quit()
