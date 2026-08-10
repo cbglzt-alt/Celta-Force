@@ -1,0 +1,735 @@
+{
+  "source": "assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/character and tileset/Dungeon_Tileset.png",
+  "tile_size": 16,
+  "cols": 10,
+  "rows": 10,
+  "count": 100,
+  "unique_visuals": 92,
+  "note": "Near-black background converted to alpha. Godot auto-generates .import on open.",
+  "tiles": [
+    {
+      "name": "wall_corner_outer_tl",
+      "row": 0,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/wall_corner_outer_tl.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_top_a",
+      "row": 0,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/wall_top_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_top_b",
+      "row": 0,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/wall_top_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_top_c",
+      "row": 0,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/wall_top_c.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_top_d",
+      "row": 0,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/wall_top_d.png",
+      "duplicate_of": "wall_top_a"
+    },
+    {
+      "name": "wall_corner_outer_tr",
+      "row": 0,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/wall_corner_outer_tr.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_tl",
+      "row": 0,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/floor_border_tl.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_t_a",
+      "row": 0,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/floor_border_t_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_t_b",
+      "row": 0,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/floor_border_t_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_tr",
+      "row": 0,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/floor_border_tr.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_side_l",
+      "row": 1,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/wall_side_l.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_face_a",
+      "row": 1,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/wall_face_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_face_b",
+      "row": 1,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/wall_face_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_face_c",
+      "row": 1,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/wall_face_c.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_face_d",
+      "row": 1,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/wall_face_d.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_side_r",
+      "row": 1,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/wall_side_r.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_l_a",
+      "row": 1,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/floor_border_l_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_a",
+      "row": 1,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/floor_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_b",
+      "row": 1,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/floor_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_r_a",
+      "row": 1,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/floor_border_r_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_mid_l",
+      "row": 2,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/wall_mid_l.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_inner_corner_tl",
+      "row": 2,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/wall_inner_corner_tl.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_c",
+      "row": 2,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/floor_c.png",
+      "duplicate_of": "floor_a"
+    },
+    {
+      "name": "floor_d",
+      "row": 2,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/floor_d.png",
+      "duplicate_of": "floor_b"
+    },
+    {
+      "name": "wall_inner_corner_tr",
+      "row": 2,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/wall_inner_corner_tr.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_mid_r",
+      "row": 2,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/wall_mid_r.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_l_b",
+      "row": 2,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/floor_border_l_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_e",
+      "row": 2,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/floor_e.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_f",
+      "row": 2,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/floor_f.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_r_b",
+      "row": 2,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/floor_border_r_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_side_l_b",
+      "row": 3,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/wall_side_l_b.png",
+      "duplicate_of": "wall_side_l"
+    },
+    {
+      "name": "wall_inner_corner_bl",
+      "row": 3,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/wall_inner_corner_bl.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_inner_bottom_a",
+      "row": 3,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/wall_inner_bottom_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_inner_bottom_b",
+      "row": 3,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/wall_inner_bottom_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_inner_corner_br",
+      "row": 3,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/wall_inner_corner_br.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_side_r_b",
+      "row": 3,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/wall_side_r_b.png",
+      "duplicate_of": "wall_side_r"
+    },
+    {
+      "name": "door_closed_tl",
+      "row": 3,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/door_closed_tl.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "door_closed_tr",
+      "row": 3,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/door_closed_tr.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_g",
+      "row": 3,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/floor_g.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "ladder",
+      "row": 3,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/ladder.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_corner_outer_bl",
+      "row": 4,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/wall_corner_outer_bl.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_bottom_a",
+      "row": 4,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/wall_bottom_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_bottom_b",
+      "row": 4,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/wall_bottom_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_bottom_c",
+      "row": 4,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/wall_bottom_c.png",
+      "duplicate_of": "wall_bottom_b"
+    },
+    {
+      "name": "wall_bottom_d",
+      "row": 4,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/wall_bottom_d.png",
+      "duplicate_of": "wall_bottom_a"
+    },
+    {
+      "name": "wall_corner_outer_br",
+      "row": 4,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/wall_corner_outer_br.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "beam_vertical_a",
+      "row": 4,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/beam_vertical_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "beam_vertical_b",
+      "row": 4,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/beam_vertical_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "beam_vertical_c",
+      "row": 4,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/beam_vertical_c.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "crate_stack",
+      "row": 4,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/crate_stack.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_ledge_l",
+      "row": 5,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/wall_ledge_l.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_ledge_a",
+      "row": 5,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/wall_ledge_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_ledge_b",
+      "row": 5,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/wall_ledge_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "wall_ledge_r",
+      "row": 5,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/wall_ledge_r.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "debris_a",
+      "row": 5,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/debris_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "debris_b",
+      "row": 5,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/debris_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "door_closed_bl",
+      "row": 5,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/door_closed_bl.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "door_closed_br",
+      "row": 5,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/door_closed_br.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "beam_stump",
+      "row": 5,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/beam_stump.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "rubble_stones",
+      "row": 5,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/rubble_stones.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_room_a",
+      "row": 6,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/floor_room_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_room_b",
+      "row": 6,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/floor_room_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_room_c",
+      "row": 6,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/floor_room_c.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_room_d",
+      "row": 6,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/floor_room_d.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "debris_c",
+      "row": 6,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/debris_c.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "debris_d",
+      "row": 6,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/debris_d.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "door_open_l",
+      "row": 6,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/door_open_l.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "door_open_r",
+      "row": 6,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/door_open_r.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "bone_shards",
+      "row": 6,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/bone_shards.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "rubble",
+      "row": 6,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/rubble.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_bl",
+      "row": 7,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/floor_border_bl.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_b_a",
+      "row": 7,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/floor_border_b_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_b_b",
+      "row": 7,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/floor_border_b_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_border_br",
+      "row": 7,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/floor_border_br.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "banner",
+      "row": 7,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/banner.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "bone_b",
+      "row": 7,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/bone_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "bone_c",
+      "row": 7,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/bone_c.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "skull_and_bone",
+      "row": 7,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/skull_and_bone.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "void",
+      "row": 7,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/void.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "floor_h",
+      "row": 7,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/floor_h.png",
+      "duplicate_of": "floor_b"
+    },
+    {
+      "name": "chest_wood_closed",
+      "row": 8,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/chest_wood_closed.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "chest_wood_open",
+      "row": 8,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/chest_wood_open.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "chest_wood_looted",
+      "row": 8,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/chest_wood_looted.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "chest_metal_closed",
+      "row": 8,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/chest_metal_closed.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "chest_metal_open",
+      "row": 8,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/chest_metal_open.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "chest_metal_looted",
+      "row": 8,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/chest_metal_looted.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "coin_gold",
+      "row": 8,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/coin_gold.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "potion_blue_a",
+      "row": 8,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/potion_blue_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "key_silver",
+      "row": 8,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/key_silver.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "potion_red_a",
+      "row": 8,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/potion_red_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "torch_wall_lit_a",
+      "row": 9,
+      "col": 0,
+      "file": "res://assets/tiles/dungeon/torch_wall_lit_a.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "torch_wall_lit_b",
+      "row": 9,
+      "col": 1,
+      "file": "res://assets/tiles/dungeon/torch_wall_lit_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "torch_wall_unlit",
+      "row": 9,
+      "col": 2,
+      "file": "res://assets/tiles/dungeon/torch_wall_unlit.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "candelabra_lit_tall",
+      "row": 9,
+      "col": 3,
+      "file": "res://assets/tiles/dungeon/candelabra_lit_tall.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "candelabra_unlit_tall",
+      "row": 9,
+      "col": 4,
+      "file": "res://assets/tiles/dungeon/candelabra_unlit_tall.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "candelabra_lit_short",
+      "row": 9,
+      "col": 5,
+      "file": "res://assets/tiles/dungeon/candelabra_lit_short.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "candelabra_unlit_short",
+      "row": 9,
+      "col": 6,
+      "file": "res://assets/tiles/dungeon/candelabra_unlit_short.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "potion_blue_b",
+      "row": 9,
+      "col": 7,
+      "file": "res://assets/tiles/dungeon/potion_blue_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "potion_red_b",
+      "row": 9,
+      "col": 8,
+      "file": "res://assets/tiles/dungeon/potion_red_b.png",
+      "duplicate_of": null
+    },
+    {
+      "name": "key_gold",
+      "row": 9,
+      "col": 9,
+      "file": "res://assets/tiles/dungeon/key_gold.png",
+      "duplicate_of": null
+    }
+  ],
+  "aliases_existing": {
+    "wall_top.png": "wall_top_a",
+    "wall_side.png": "wall_side_l",
+    "wall.png": "wall_face_a",
+    "floor.png": "floor_a",
+    "floor_c.png": "floor_a",
+    "floor_a.png": "floor_e",
+    "floor_b.png": "floor_g",
+    "floor_d.png": "wall_inner_bottom_b",
+    "debris_a.png": "debris_a",
+    "debris_b.png": "debris_b",
+    "debris_c.png": "debris_c",
+    "skull_pile.png": "debris_c",
+    "debris_d.png": "debris_d",
+    "bone_a.png": "door_open_r",
+    "bone_b.png": "bone_b",
+    "bone_c.png": "bone_c",
+    "rubble.png": "rubble",
+    "chest.png": "chest_wood_closed",
+    "gold.png": "coin_gold",
+    "vision.png": "potion_blue_a",
+    "quest.png": "key_silver",
+    "deco_skull.png": "key_silver"
+  }
+}
