@@ -16,6 +16,9 @@ var _ghost_labels: Array = []
 var _countdown_label: Label
 var _banner: Label
 var _banner_tween: Tween
+var _alert_root: Control
+var _alert: Label
+var _alert_tween: Tween
 var _result_panel: ColorRect
 var _result_title: Label
 var _result_stats: Label
@@ -73,6 +76,34 @@ func message(text: String, duration := 2.2) -> void:
 	_banner_tween = create_tween()
 	_banner_tween.tween_interval(duration)
 	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.5)
+
+
+## 全屏大字警告（精英刷出等强提示）
+func alert_big(text: String, duration := 2.8) -> void:
+	_alert.text = text
+	if _alert_tween and _alert_tween.is_valid():
+		_alert_tween.kill()
+	_alert_root.visible = true
+	_alert_root.modulate = Color(1, 1, 1, 1)
+	_alert.modulate = Color(1, 1, 1, 0)
+	_alert.scale = Vector2(0.85, 0.85)
+	# 等一帧让布局算好 pivot，避免缩放到屏幕外
+	await get_tree().process_frame
+	if not is_instance_valid(_alert):
+		return
+	_alert.pivot_offset = _alert.size * 0.5
+	_alert_tween = create_tween()
+	_alert_tween.set_parallel(true)
+	_alert_tween.tween_property(_alert, "modulate:a", 1.0, 0.2)
+	_alert_tween.tween_property(_alert, "scale", Vector2(1.05, 1.05), 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_alert_tween.chain().set_parallel(false)
+	_alert_tween.tween_property(_alert, "scale", Vector2.ONE, 0.12)
+	_alert_tween.tween_interval(duration)
+	_alert_tween.tween_property(_alert, "modulate:a", 0.0, 0.5)
+	_alert_tween.tween_callback(func():
+		if is_instance_valid(_alert_root):
+			_alert_root.visible = false
+	)
 
 
 func set_countdown_visible(v: bool) -> void:
@@ -179,6 +210,24 @@ func _build_ui() -> void:
 	_banner.add_theme_color_override("font_color", Color("#fde68a"))
 	_banner.add_theme_constant_override("outline_size", 6)
 	_banner.modulate.a = 0.0
+
+	# 全屏大字警告：用满屏 CenterContainer，避免锚点 Label 尺寸为 0 画不出来
+	_alert_root = Control.new()
+	_alert_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_alert_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_alert_root.visible = false
+	_alert_root.z_index = 40
+	add_child(_alert_root)
+	var alert_center := CenterContainer.new()
+	alert_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	alert_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_alert_root.add_child(alert_center)
+	_alert = _mk_label(alert_center, "", 52)
+	_alert.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_alert.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_alert.add_theme_color_override("font_color", Color("#f0abfc"))
+	_alert.add_theme_color_override("font_outline_color", Color(0.12, 0.02, 0.18, 1))
+	_alert.add_theme_constant_override("outline_size", 14)
 
 	_build_result_panel()
 

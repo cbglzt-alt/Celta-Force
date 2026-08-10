@@ -8,18 +8,19 @@ signal died(pos, gold)
 enum State { SPAWN, CHASE, TELEGRAPH, CHANNEL, BURST, COOLDOWN }
 
 @export var hp_mult := 14.0         # 血量 = 杂兵 hp × 14（精英要扛住被动输出，别被秒）
-@export var burst_dmg_mult := 4.0   # 爆发伤害 = 当前波接触伤害 × 4（定身+高伤才有压迫感）
-@export var stun_duration := 2.0    # 定身秒数
+@export var skill_duration := 5.0   # 技能持续：定身 + 地刺，期间两段伤害
+@export var player_dmg_pct_1 := 0.30  # 主角第 1 段：满血 30%
+@export var player_dmg_pct_2 := 0.10  # 主角第 2 段：满血 10%
+@export var enemy_dmg_pct_1 := 0.50   # 杂兵第 1 段：满血 50%
+@export var enemy_dmg_pct_2 := 0.20   # 杂兵第 2 段：满血 20%
 @export var telegraph_time := 1.2   # 驻足预告（走位窗）
 @export var channel_time := 1.5     # 敲门读条
-@export var burst_radius := 150.0   # 爆发半径
 @export var interrupt_frac := 0.5   # 打断阈值 = 血量 × 50% 累计受击（很难打断，以走位躲避为主）
 @export var skill_cooldown := 6.0   # 两次敲门间隔
 @export var gold_drop := 25
 
 var hp: float
 var speed: float
-var burst_damage: float
 var alive := true
 var enraged := false
 
@@ -94,7 +95,6 @@ func setup(round_num: int, is_enraged: bool, player_ref: Node2D, fog_ref: Node2D
 	var ed: EnemyData = Enemy.DATA
 	hp = ed.hp_at(round_num) * hp_mult
 	_max_hp = hp
-	burst_damage = ed.damage_at(round_num) * burst_dmg_mult
 	speed = ed.speed_at(round_num) * 0.85  # 精英略慢，压迫感来自技能而非速度
 	_interrupt_threshold = hp * interrupt_frac
 	_player = player_ref
@@ -160,7 +160,14 @@ func _physics_process(delta: float) -> void:
 			# 读条期被打断判定在 take_damage 里累计
 			if _state_t <= 0.0:
 				_burst()
-		State.BURST, State.COOLDOWN:
+		State.BURST:
+			velocity = Vector2.ZERO
+			_play("attack")  # 技能持续期仍保持敲击压迫感
+			if _state_t <= 0.0:
+				_state = State.COOLDOWN
+				_state_t = 0.4
+				_cool_t = skill_cooldown
+		State.COOLDOWN:
 			velocity = Vector2.ZERO
 			_play("idle")
 			if _state_t <= 0.0:
@@ -311,46 +318,66 @@ func _clear_spikes() -> void:
 	_spike_tiles.clear()
 
 
-## 爆发：危险房间（矩形）内所有目标定身+掉血（先结算，再延迟清地刺）
+## 爆发：技能持续 skill_duration，定身 + 两段固定比例伤害（满血百分比，不够则死）
 func _burst() -> void:
-	_state = State.COOLDOWN
-	_state_t = 1.0
+	_state = State.BURST
+	_state_t = skill_duration
 	_clear_danger_marks()
-	# 命中判定立刻结算（不依赖 await；主角离房后技能照常生效）
+	_flash_text("开门！", Color("#f87171"))
+	if _door:
+		_door.create_tween().tween_property(_door, "modulate:a", 0.0, 0.4)
+		_door.create_tween().tween_callback(_door.queue_free).set_delay(0.4)
+		_door = null
+
 	var rect := Rect2(
 		Vector2(_danger_rect.position) * _level.TILE,
 		Vector2(_danger_rect.size) * _level.TILE)
-	if _player and is_instance_valid(_player) and _player.alive:
-		if rect.has_point(_player.global_position):
-			_player.take_damage(burst_damage)
-			_player.apply_stun(stun_duration)
-	# 低级敌鬼（杂兵）定身+掉血（story：低于其等级都定）
-	var hit_n := 0
+	var caught_player := false
+	var caught_enemies: Array = []
+
+	if _player and is_instance_valid(_player) and _player.alive and rect.has_point(_player.global_position):
+		caught_player = true
+		_player.apply_stun(skill_duration)
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if e == self or not is_instance_valid(e):
 			continue
 		if not (e is Enemy) or not rect.has_point(e.global_position):
 			continue
-		e.take_damage(burst_damage * 0.5, global_position, Color("#c084fc"))
-		if e.has_method("apply_stun"):
-			e.apply_stun(stun_duration)
+		caught_enemies.append(e)
+		if not e._dying:
+			e.apply_stun(skill_duration)
+
+	# 第 1 段伤害（立刻）
+	_skill_tick(caught_player, caught_enemies, player_dmg_pct_1, enemy_dmg_pct_1, 1)
+	var half := skill_duration * 0.5
+	await get_tree().create_timer(half).timeout
+	if not is_instance_valid(self) or not alive:
+		return
+	# 第 2 段伤害（持续中点）
+	_skill_tick(caught_player, caught_enemies, player_dmg_pct_2, enemy_dmg_pct_2, 2)
+	await get_tree().create_timer(half).timeout
+	if is_instance_valid(self):
+		_clear_spikes()
+
+
+func _skill_tick(caught_player: bool, caught_enemies: Array, player_pct: float, enemy_pct: float, tick: int) -> void:
+	var hit_n := 0
+	if caught_player and _player and is_instance_valid(_player) and _player.alive:
+		var dmg: float = _player.max_hp * player_pct
+		_player.take_damage(dmg)
 		hit_n += 1
+	for e in caught_enemies:
+		if not is_instance_valid(e) or e._dying:
+			continue
+		var hp_before: float = e.hp
+		var dmg: float = e.max_hp * enemy_pct
+		e.take_damage(dmg, global_position, Color("#c084fc"))
+		hit_n += 1
+		if "--probe-knocker" in OS.get_cmdline_user_args() and hp_before > 0.0 and (e._dying or e.hp <= 0.0):
+			print("PROBE knocker.kill tick=%d hp_before=%.1f gold_drop=%d" % [tick, hp_before, e.gold_drop])
 	if "--probe-knocker" in OS.get_cmdline_user_args():
-		print("PROBE knocker._burst hit_enemies=%d player_in=%s self.visible=%s" % [
-			hit_n,
-			_player != null and rect.has_point(_player.global_position),
-			visible])
-	_flash_text("开门！", Color("#f87171"))
-	# 清理门框
-	if _door:
-		_door.create_tween().tween_property(_door, "modulate:a", 0.0, 0.4)
-		_door.create_tween().tween_callback(_door.queue_free).set_delay(0.4)
-		_door = null
-	# 地刺在爆发后再留一拍（0.4s）才消散
-	if not _spike_tiles.is_empty():
-		await get_tree().create_timer(0.4).timeout
-		if is_instance_valid(self):
-			_clear_spikes()
+		print("PROBE knocker.tick=%d hits=%d player=%s pct_p=%.0f pct_e=%.0f" % [
+			tick, hit_n, caught_player, player_pct * 100.0, enemy_pct * 100.0])
 
 
 ## 被打断：门碎裂、回游走

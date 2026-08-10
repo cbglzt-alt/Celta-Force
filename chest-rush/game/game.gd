@@ -177,8 +177,8 @@ func _on_round() -> void:
 	var count := 3 + round_num + maxi(0, round_num - 6)
 	for i in count:
 		_spawn_enemy(_random_spawn_pos())
-	# 精英敲门鬼：第 3 波起，每 3 波 1 只（在玩家附近涌现，带出场特效）
-	if round_num >= 3 and round_num % 3 == 0:
+	# 精英敲门鬼：第 3 波起每 3 波尝试刷 1 只；场上已有存活敲门鬼则不再刷
+	if round_num >= 3 and round_num % 3 == 0 and not _has_alive_knocker():
 		_spawn_knocker(_random_spawn_pos())
 	_scale_obstacles()
 	hud.message("第 %d 波「鬼」涌现（%d 只）！" % [round_num, count])
@@ -219,12 +219,29 @@ func _spawn_enemy(pos: Vector2) -> void:
 
 
 func _spawn_knocker(pos: Vector2) -> void:
+	if _has_alive_knocker():
+		return  # 一次只允许一只
 	var k = KnockerScene.instantiate()
 	_world.add_child(k)
 	k.global_position = pos
 	k.setup(round_num, enraged, player, fog, level)
 	k.died.connect(_on_enemy_died)
-	hud.message("「敲门鬼」出现了——听到敲门声，快离开那扇门！", 3.0)
+	# 等出场飘字冒头后再弹全屏警告，避免被同帧波次横幅盖住注意力
+	_alert_knocker_spawn()
+
+
+func _alert_knocker_spawn() -> void:
+	await get_tree().create_timer(0.35).timeout
+	if over:
+		return
+	hud.alert_big("敲门鬼来了，请小心！", 3.2)
+
+
+func _has_alive_knocker() -> bool:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e is EliteKnocker and is_instance_valid(e) and e.alive:
+			return true
+	return false
 
 
 func _on_enemy_died(pos: Vector2, gold_amt: int) -> void:
@@ -381,12 +398,11 @@ func _balance_mode() -> void:
 	player.died.connect(func(): print("BALANCE player died at wave=%d time=%.0fs" % [round_num, run_time]))
 
 
-## 敲门鬼探针：主角离房后技能是否仍铺地刺、并对房内杂兵定身+伤害
+## 敲门鬼探针：离房后地刺 / 杂兵定身伤害 / 击杀掉金 / 同时仅一只
 ## 用法：godot --headless --path chest-rush --quit-after 900 -- --probe-knocker
 func _probe_knocker_mode() -> void:
 	print("PROBE knocker start")
 	_round_timer.stop()
-	# 关掉玩家武器，避免探针窗口里把怪打死
 	player.set_damage_mult(0.0)
 	for w in player.weapons:
 		w.set_physics_process(false)
@@ -398,25 +414,34 @@ func _probe_knocker_mode() -> void:
 	_world.add_child(k)
 	k.global_position = room_pos + Vector2(48, 0)
 	k.setup(round_num, false, player, fog, level)
+	k.died.connect(_on_enemy_died)
+
+	# 第二只应被拒绝
+	_spawn_knocker(room_pos + Vector2(80, 0))
+	var knocker_n := 0
+	for n in get_tree().get_nodes_in_group("enemies"):
+		if n is EliteKnocker and n.alive:
+			knocker_n += 1
+	print("PROBE knocker_count=%d (expect 1)" % knocker_n)
 
 	var e = EnemyScene.instantiate()
 	_world.add_child(e)
 	e.global_position = room_pos + Vector2(-48, 0)
 	e.setup(round_num, false, player, fog, level)
-	e.set_physics_process(false)  # 探针：锁在房内，不追离房主角
-	var hp_before: float = e.hp
+	e.set_physics_process(false)
+	e.died.connect(_on_enemy_died)
+	# 压到残血，确保爆发能击杀并掉金
+	e.hp = 1.0
+	var gold_before := get_tree().get_nodes_in_group("pickups").size()
 
-	# 等出场无敌结束
 	await get_tree().create_timer(1.1).timeout
 	k._start_telegraph()
-	# 把杂兵钉在危险区中心（验证「范围内怪物」）
 	var mid: Vector2i = k._danger_rect.position + k._danger_rect.size / 2
 	e.global_position = level.tile_to_world(mid)
-	print("PROBE telegraph danger=%s marks=%d enemy_in_room=%s" % [
-		k._danger_rect, k._danger_tiles.size(),
+	print("PROBE telegraph danger=%s enemy_in_room=%s" % [
+		k._danger_rect,
 		Rect2(Vector2(k._danger_rect.position) * level.TILE, Vector2(k._danger_rect.size) * level.TILE).has_point(e.global_position)])
 
-	# 主角立刻离房（模拟你的观察路径）
 	var leave_pos: Vector2 = room_pos
 	if level.exits.size() > 0:
 		leave_pos = level.tile_to_world(level.exits[0].tile)
@@ -425,34 +450,47 @@ func _probe_knocker_mode() -> void:
 	player.global_position = leave_pos
 	fog.force_update()
 	await get_tree().process_frame
-	print("PROBE left_room knocker.visible=%s fog_visible=%s player_dist=%.0f" % [
-		k.visible, fog.is_visible_world(k.global_position),
-		k.global_position.distance_to(player.global_position)])
+	print("PROBE left_room knocker.visible=%s fog_visible=%s" % [
+		k.visible, fog.is_visible_world(k.global_position)])
 
-	# 等到读条（地刺应已铺上）
 	await get_tree().create_timer(k.telegraph_time + 0.1).timeout
 	var spike_n: int = k._spike_tiles.size()
-	var spike_parent := "none"
 	var spike_under_knocker := false
 	if spike_n > 0 and is_instance_valid(k._spike_tiles[0]):
 		var pnode: Node = k._spike_tiles[0].get_parent()
-		spike_parent = pnode.name if pnode else "null"
 		spike_under_knocker = (pnode == k) or (pnode != null and pnode.get_parent() == k)
-	print("PROBE channel spikes=%d parent=%s under_knocker=%s knocker.visible=%s" % [
-		spike_n, spike_parent, spike_under_knocker, k.visible])
+	print("PROBE channel spikes=%d under_knocker=%s" % [spike_n, spike_under_knocker])
 
-	# 等到爆发结算
-	await get_tree().create_timer(k.channel_time + 0.15).timeout
-	var stunned_ok: bool = e.stunned
-	var dmg_ok: bool = e.hp < hp_before - 0.1
-	print("PROBE burst enemy.stunned=%s hp=%.1f->%.1f dmg_ok=%s" % [
-		stunned_ok, hp_before, e.hp, dmg_ok])
+	await get_tree().create_timer(k.channel_time + 0.25).timeout
+	# deferred 掉落下一帧才进树；第 1 段伤害在爆发瞬间
+	await get_tree().process_frame
+	var gold_after := 0
+	for p in get_tree().get_nodes_in_group("pickups"):
+		if p.kind == Pickup.Kind.GOLD:
+			gold_after += 1
+	var killed_ok: bool = not is_instance_valid(e) or e._dying or e.hp <= 0.0
+	print("PROBE burst killed=%s pickups_gold %d->%d skill_dur=%.1f" % [
+		killed_ok, gold_before, gold_after, k.skill_duration])
+
+	# 满血杂兵：两段 50%+20%，应剩 30%
+	var e2 = EnemyScene.instantiate()
+	_world.add_child(e2)
+	e2.setup(round_num, false, player, fog, level)
+	e2.set_physics_process(false)
+	e2.global_position = level.tile_to_world(mid)
+	var full: float = e2.max_hp
+	k._skill_tick(false, [e2], 0.0, k.enemy_dmg_pct_1, 1)
+	k._skill_tick(false, [e2], 0.0, k.enemy_dmg_pct_2, 2)
+	var expect_hp: float = full * (1.0 - k.enemy_dmg_pct_1 - k.enemy_dmg_pct_2)
+	var pct_ok: bool = is_instance_valid(e2) and not e2._dying and abs(e2.hp - expect_hp) < 1.0
+	print("PROBE pct_dmg hp=%.1f expect≈%.1f ok=%s" % [e2.hp if is_instance_valid(e2) else -1.0, expect_hp, pct_ok])
 
 	var pass_fx: bool = spike_n > 0 and not spike_under_knocker
-	var pass_hit: bool = stunned_ok and dmg_ok
-	if pass_fx and pass_hit:
+	var pass_kill_gold: bool = killed_ok and gold_after > gold_before
+	var pass_one: bool = knocker_n == 1
+	if pass_fx and pass_kill_gold and pass_one and pct_ok:
 		print("PROBE RESULT PASS")
 	else:
-		print("PROBE RESULT FAIL fx=%s hit=%s" % [pass_fx, pass_hit])
+		print("PROBE RESULT FAIL fx=%s kill_gold=%s one=%s pct=%s" % [pass_fx, pass_kill_gold, pass_one, pct_ok])
 	await get_tree().create_timer(0.3).timeout
 	get_tree().quit()
