@@ -22,6 +22,14 @@ var _los_query: PhysicsRayQueryParameters2D
 
 const ProjectileScene := preload("res://game/projectile.tscn")
 
+## 域技能灼烧：flamethrower_1（4 帧，播完即消）
+const FLAME_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/flamethrower/"
+const FLAME_FRAMES: Array[String] = [
+	"flamethrower_1_1.png", "flamethrower_1_2.png",
+	"flamethrower_1_3.png", "flamethrower_1_4.png",
+]
+static var _aura_sf: SpriteFrames
+
 
 func _world() -> Node2D:
 	var cs := get_tree().current_scene
@@ -56,7 +64,7 @@ func setup(idx: int, player_ref: Node2D) -> void:
 	if data.pattern == WeaponData.Pattern.AURA:
 		var ring := Polygon2D.new()
 		ring.polygon = _ring_poly(data.attack_range, 48)
-		ring.color = Color(data.color, 0.08)
+		ring.color = Color(data.color, 0.14)
 		ring.z_index = -1
 		add_child(ring)
 
@@ -229,20 +237,61 @@ func _fire_bolt(target: Node2D) -> void:
 
 
 func _fire_aura() -> void:
-	var ring := Polygon2D.new()
-	ring.polygon = _ring_poly(data.attack_range, 40)
-	ring.color = Color(data.color, 0.35)
-	ring.z_index = -1
-	_world().add_child(ring)
-	ring.global_position = _src()
-	var tw := ring.create_tween()
-	tw.tween_property(ring, "modulate:a", 0.0, 0.3)
-	tw.tween_callback(ring.queue_free)
 	var src := _src()
+	_spawn_aura_flames(src)
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if src.distance_to(e.global_position) <= data.attack_range and not _blocked(e.global_position):
 			e.take_damage(_dmg(), src, data.color)
 	# 破坏物免疫范围伤害（只有近战刀能开箱/清障）
+
+
+## 域灼烧特效：范围内铺 flamethrower_1；z_index=-1 画在怪物脚下，不遮挡
+func _spawn_aura_flames(origin: Vector2) -> void:
+	var world := _world()
+	if world == null:
+		return
+	var sf := _aura_frames()
+	# 4 帧 / 10fps ≈ 0.4s，略加缓冲后强制回收（避免末帧灰点残留）
+	var life := 0.45
+	var spots: Array[Vector2] = [Vector2.ZERO]
+	var outer := data.attack_range * 0.62
+	for i in 8:
+		var a := TAU * float(i) / 8.0
+		spots.append(Vector2(cos(a), sin(a)) * outer)
+	for i in 4:
+		var a := TAU * float(i) / 4.0 + 0.4
+		spots.append(Vector2(cos(a), sin(a)) * (outer * 0.42))
+	for off in spots:
+		var s := AnimatedSprite2D.new()
+		s.sprite_frames = sf
+		s.scale = Vector2(2.0, 2.0)
+		s.z_index = -1  # 低于默认 0 的怪物/玩家
+		s.z_as_relative = false
+		world.add_child(s)
+		# 略下移，火焰落在脚底而非盖住身躯
+		s.global_position = origin + off + Vector2(0, 10)
+		s.play("burn")
+		# AnimatedSprite2D.animation_finished 无参；末帧易留灰白点，淡出后回收
+		var tw := s.create_tween()
+		tw.tween_interval(life * 0.55)
+		tw.tween_property(s, "modulate:a", 0.0, life * 0.45)
+		tw.tween_callback(s.queue_free)
+
+
+func _aura_frames() -> SpriteFrames:
+	if _aura_sf != null:
+		return _aura_sf
+	var sf := SpriteFrames.new()
+	sf.add_animation("burn")
+	sf.set_animation_speed("burn", 10.0)
+	sf.set_animation_loop("burn", false)
+	# 只用前两帧：后两帧几乎是灰白残点，播完易看成「小白点」
+	for i in 2:
+		var tex: Texture2D = load(FLAME_DIR + FLAME_FRAMES[i])
+		if tex:
+			sf.add_frame("burn", tex)
+	_aura_sf = sf
+	return sf
 
 
 func _ring_poly(r: float, n: int) -> PackedVector2Array:

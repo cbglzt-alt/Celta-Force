@@ -9,9 +9,13 @@ const KnockerScene := preload("res://game/elite_knocker.tscn")
 @export var quest_target := 3
 @export var round_interval := 22.0
 @export var extract_countdown := 75.0
-@export var upgrade_base_cost := 30
-@export var upgrade_cost_growth := 1.8
+@export var upgrade_base_cost := 35
+@export var upgrade_cost_growth := 1.75  # 强化有取舍，不能扫箱满级
 @export var upgrade_max_level := 5
+@export var upgrade_attack_mult := 1.45  # 每级全体鬼伤害乘算
+@export var upgrade_speed_mult := 1.15
+@export var upgrade_hp_bonus := 70.0    # 每级生命上限
+@export var loot_gold_growth := 1.08    # 破坏物金币随波增速（慢于怪血）
 @export var spawn_radius := 220.0
 
 var level: Node2D
@@ -143,16 +147,16 @@ func _buy(track: String) -> void:
 	up_levels[track] += 1
 	match track:
 		"attack":
-			# 抬上限：全体鬼伤害 +35%（乘算）
-			player.set_damage_mult(pow(1.35, up_levels["attack"]))
+			# 抬上限：各鬼按 upgrade_scale 微分乘算（域后期追平）
+			player.apply_attack_upgrade(up_levels["attack"], upgrade_attack_mult)
 			hud.message("全体鬼攻击提升！")
 		"speed":
-			# 抬上限：移速 +15%
-			player.speed_mult = pow(1.15, up_levels["speed"])
+			# 抬上限：移速乘算
+			player.speed_mult = pow(upgrade_speed_mult, up_levels["speed"])
 			hud.message("移动速度提升！")
 		"hp":
 			# 抬上限并一次补满
-			player.max_hp += 40
+			player.max_hp += upgrade_hp_bonus
 			player.heal(player.max_hp)
 			hud.message("生命上限提升并补满！")
 
@@ -259,14 +263,23 @@ func _on_destructible_destroyed(d) -> void:
 
 func _drop_from_destructible(pos: Vector2, kind: int, has_quest: bool) -> void:
 	if kind == Destructible.Kind.CHEST:
-		_spawn_pickup(Pickup.Kind.GOLD, randi_range(15, 30), pos + Vector2(-10, 0))
+		_spawn_pickup(Pickup.Kind.GOLD, _wave_scaled_gold(12, 20), pos + Vector2(-10, 0))
 		if has_quest:
 			_spawn_pickup(Pickup.Kind.QUEST, 1, pos + Vector2(12, 0))
 		elif randf() < 0.18:
 			_spawn_pickup(Pickup.Kind.VISION, 1, pos + Vector2(12, 0))
 	else:
-		# 障碍必掉少量金币（比宝箱少很多）
-		_spawn_pickup(Pickup.Kind.GOLD, randi_range(2, 5), pos)
+		# 障碍/小宝箱：随波缓增，底数压低防滚雪球
+		_spawn_pickup(Pickup.Kind.GOLD, _wave_scaled_gold(2, 4), pos)
+
+
+## 破坏物金币随波次放大（增速用 loot_gold_growth，慢于怪血）
+func _wave_scaled_gold(base_lo: int, base_hi: int) -> int:
+	var r := maxi(round_num - 1, 0)
+	var mult: float = pow(loot_gold_growth, r)
+	var lo: int = maxi(1, int(round(float(base_lo) * mult)))
+	var hi: int = maxi(lo, int(round(float(base_hi) * mult)))
+	return randi_range(lo, hi)
 
 
 func _spawn_pickup(kind: Pickup.Kind, amount: int, pos: Vector2) -> void:

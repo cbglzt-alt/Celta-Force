@@ -49,6 +49,14 @@ const IFACE_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/i
 const SQUARE_FRAMES := ["square_up_down_1.png", "square_up_down_2.png", "square_up_down_3.png", "square_up_down_4.png"]
 const PEAKS_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/peaks/"
 const PEAKS_FRAMES := ["peaks_1.png", "peaks_2.png", "peaks_3.png", "peaks_4.png"]
+## peaks 源图无 alpha，用色键抠掉地砖底色，避免铺满后挡住角色
+const PEAKS_BG: Array[Color] = [
+	Color8(61, 37, 59), Color8(54, 32, 48), Color8(37, 19, 26),
+]
+const FX_Z := -1  # 危险区/地刺画在角色脚下
+
+static var _mark_sf: SpriteFrames
+static var _spike_sf: SpriteFrames
 
 @onready var _body: Polygon2D = $Body
 @onready var _fx: Node2D = $Fx
@@ -252,15 +260,10 @@ func _add_mark(t: Vector2i, ts: int) -> void:
 	if not _level.in_bounds(t) or _level.blocks_vision(t):
 		return
 	var s := AnimatedSprite2D.new()
-	var sf := SpriteFrames.new()
-	sf.add_animation("pulse")
-	sf.set_animation_speed("pulse", 6.0)
-	sf.set_animation_loop("pulse", true)
-	for f in SQUARE_FRAMES:
-		sf.add_frame("pulse", load(IFACE_DIR + f))
-	s.sprite_frames = sf
+	s.sprite_frames = _mark_frames()
 	s.scale = Vector2(ts / 16.0, ts / 16.0)
-	s.z_index = 2
+	s.z_index = FX_Z
+	s.z_as_relative = false
 	s.play("pulse")
 	_fx_host().add_child(s)
 	s.global_position = _level.tile_to_world(t)
@@ -287,21 +290,17 @@ func _spawn_spikes() -> void:
 	_clear_spikes()
 	var ts: int = _level.TILE
 	var host := _fx_host()
+	var sf := _spike_frames()
 	for x in range(_danger_rect.position.x, _danger_rect.end.x):
 		for y in range(_danger_rect.position.y, _danger_rect.end.y):
 			var t := Vector2i(x, y)
 			if not _level.in_bounds(t) or _level.blocks_vision(t):
 				continue
 			var s := AnimatedSprite2D.new()
-			var sf := SpriteFrames.new()
-			sf.add_animation("spike")
-			sf.set_animation_speed("spike", 7.0)
-			sf.set_animation_loop("spike", true)
-			for f in PEAKS_FRAMES:
-				sf.add_frame("spike", load(PEAKS_DIR + f))
 			s.sprite_frames = sf
 			s.scale = Vector2(ts / 16.0, ts / 16.0)
-			s.z_index = 2
+			s.z_index = FX_Z
+			s.z_as_relative = false
 			s.play("spike")
 			host.add_child(s)
 			s.global_position = _level.tile_to_world(t)
@@ -309,6 +308,54 @@ func _spawn_spikes() -> void:
 	if "--probe-knocker" in OS.get_cmdline_user_args():
 		print("PROBE knocker._spawn_spikes n=%d host=%s self.visible=%s" % [
 			_spike_tiles.size(), host.name if host else "null", visible])
+
+
+func _mark_frames() -> SpriteFrames:
+	if _mark_sf != null:
+		return _mark_sf
+	var sf := SpriteFrames.new()
+	sf.add_animation("pulse")
+	sf.set_animation_speed("pulse", 6.0)
+	sf.set_animation_loop("pulse", true)
+	for f in SQUARE_FRAMES:
+		var tex: Texture2D = load(IFACE_DIR + f)
+		if tex:
+			sf.add_frame("pulse", tex)
+	_mark_sf = sf
+	return sf
+
+
+func _spike_frames() -> SpriteFrames:
+	if _spike_sf != null:
+		return _spike_sf
+	var sf := SpriteFrames.new()
+	sf.add_animation("spike")
+	sf.set_animation_speed("spike", 7.0)
+	sf.set_animation_loop("spike", true)
+	for f in PEAKS_FRAMES:
+		sf.add_frame("spike", _keyed_peaks_tex(PEAKS_DIR + f))
+	_spike_sf = sf
+	return sf
+
+
+## 抠掉 peaks 实心底色，只留刺尖像素
+func _keyed_peaks_tex(path: String) -> Texture2D:
+	var src: Texture2D = load(path)
+	if src == null:
+		return null
+	var img: Image = src.get_image()
+	if img == null:
+		return src
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			for bg in PEAKS_BG:
+				if absf(c.r - bg.r) < 0.02 and absf(c.g - bg.g) < 0.02 and absf(c.b - bg.b) < 0.02:
+					img.set_pixel(x, y, Color(0, 0, 0, 0))
+					break
+	return ImageTexture.create_from_image(img)
 
 
 func _clear_spikes() -> void:

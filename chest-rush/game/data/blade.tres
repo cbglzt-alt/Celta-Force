@@ -11,3 +11,4 @@ cooldown = 0.5
 attack_range = 95.0
 color = Color(0.984, 0.573, 0.235, 1)
 sprite_key = "enemy"
+upgrade_scale = 1.0

@@ -102,6 +102,16 @@ func set_damage_mult(mult: float) -> void:
 		w.damage_mult = mult
 
 
+## 攻击强化：按各鬼 upgrade_scale 微分增长（域后期追上，体现范围强势）
+func apply_attack_upgrade(level: int, per_level: float) -> void:
+	damage_mult = pow(per_level, level)
+	for w in weapons:
+		var scale: float = 1.0
+		if w.data != null:
+			scale = w.data.upgrade_scale
+		w.damage_mult = pow(per_level, float(level) * scale)
+
+
 func take_damage(n: float) -> void:
 	if not alive:
 		return

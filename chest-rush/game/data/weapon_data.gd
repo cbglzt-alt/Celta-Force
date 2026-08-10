@@ -11,3 +11,6 @@ enum Pattern { SLASH, BOLT, AURA }
 @export var attack_range := 95.0   # 索敌/命中半径（像素）
 @export var color := Color.WHITE
 @export var sprite_key := ""       # Art.FRAMES 里的键：刀=enemy 矢=elite 域=ghost_domain
+## 攻击强化缩放：最终倍率 = attack_mult^(等级×upgrade_scale)
+## 域 > 矢 > 刀，使后期范围伤害追上并体现 AOE 强势
+@export var upgrade_scale := 1.0
