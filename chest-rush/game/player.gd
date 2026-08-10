@@ -150,7 +150,9 @@ func take_damage(n: float) -> void:
 		_play("hurt")  # 受击后仰
 	var game = get_tree().get_first_node_in_group("game")
 	if game:
-		game.spawn_float_text(global_position, "-%d" % int(n), Color("#f87171"))
+		# 加粗大红字，盖过氛围色偏蓝；略抬高避开头顶血条
+		var shown := maxi(int(round(n)), 1)
+		game.spawn_float_text(global_position + Vector2(0, -38), "-%d" % shown, Color("#ef4444"), true)
 	if hp <= 0.0:
 		alive = false
 		_play("death")  # 倒地

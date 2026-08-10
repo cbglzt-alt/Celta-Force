@@ -374,25 +374,31 @@ func vision_radius() -> int:
 
 const MAX_FLOAT_TEXTS := 40  # 同屏飘字上限，防后期怪多时掉帧
 
-func spawn_float_text(pos: Vector2, text: String, color: Color) -> void:
+func spawn_float_text(pos: Vector2, text: String, color: Color, bold := false) -> void:
 	if _effects.get_child_count() >= MAX_FLOAT_TEXTS:
 		return  # 超过上限丢弃，保帧率
 	var l := Label.new()
 	l.text = text
 	if _float_font != null:
-		l.add_theme_font_override("font", _float_font)
-	l.add_theme_font_size_override("font_size", 18)
+		if bold:
+			var fv := FontVariation.new()
+			fv.base_font = _float_font
+			fv.variation_embolden = 1.25
+			l.add_theme_font_override("font", fv)
+		else:
+			l.add_theme_font_override("font", _float_font)
+	l.add_theme_font_size_override("font_size", 28 if bold else 18)
 	l.add_theme_color_override("font_color", color)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	l.add_theme_constant_override("outline_size", 4)
+	l.add_theme_constant_override("outline_size", 0 if bold else 4)
 	l.z_index = 60
 	_effects.add_child(l)
 	# 轻微横向散开，避免同点数字叠在一起
 	l.global_position = pos + Vector2(randf_range(-16, 4), -28)
 	var tw := l.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(l, "position:y", l.position.y - 34.0, 0.6)
-	tw.tween_property(l, "modulate:a", 0.0, 0.6)
+	tw.tween_property(l, "position:y", l.position.y - (48.0 if bold else 34.0), 0.7 if bold else 0.6)
+	tw.tween_property(l, "modulate:a", 0.0, 0.7 if bold else 0.6)
 	tw.chain().tween_callback(l.queue_free)
 
 
