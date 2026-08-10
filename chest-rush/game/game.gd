@@ -4,6 +4,7 @@ extends Node2D
 const PlayerScene := preload("res://game/player.tscn")
 const EnemyScene := preload("res://game/enemy.tscn")
 const PickupScene := preload("res://game/pickup.tscn")
+const KnockerScene := preload("res://game/elite_knocker.tscn")
 
 @export var quest_target := 3
 @export var round_interval := 22.0
@@ -174,6 +175,9 @@ func _on_round() -> void:
 	var count := 3 + round_num + maxi(0, round_num - 6)
 	for i in count:
 		_spawn_enemy(_random_spawn_pos())
+	# 精英敲门鬼：第 3 波起，每 3 波 1 只（在玩家附近涌现，带出场特效）
+	if round_num >= 3 and round_num % 3 == 0:
+		_spawn_knocker(_random_spawn_pos())
 	_scale_obstacles()
 	hud.message("第 %d 波「鬼」涌现（%d 只）！" % [round_num, count])
 	if _balance:
@@ -212,6 +216,15 @@ func _spawn_enemy(pos: Vector2) -> void:
 	e.died.connect(_on_enemy_died)
 
 
+func _spawn_knocker(pos: Vector2) -> void:
+	var k = KnockerScene.instantiate()
+	_world.add_child(k)
+	k.global_position = pos
+	k.setup(round_num, enraged, player, fog, level)
+	k.died.connect(_on_enemy_died)
+	hud.message("「敲门鬼」出现了——听到敲门声，快离开那扇门！", 3.0)
+
+
 func _on_enemy_died(pos: Vector2, gold_amt: int) -> void:
 	kills += 1
 	# 物理 flush 内（弹体命中→敌死→掉落）不能新建碰撞体，延迟到物理步外
@@ -230,7 +243,7 @@ func _drop_from_destructible(pos: Vector2, kind: int, has_quest: bool) -> void:
 		_spawn_pickup(Pickup.Kind.GOLD, randi_range(15, 30), pos + Vector2(-10, 0))
 		if has_quest:
 			_spawn_pickup(Pickup.Kind.QUEST, 1, pos + Vector2(12, 0))
-		elif randf() < 0.35:
+		elif randf() < 0.18:
 			_spawn_pickup(Pickup.Kind.VISION, 1, pos + Vector2(12, 0))
 	else:
 		# 障碍必掉少量金币（比宝箱少很多）
