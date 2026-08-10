@@ -36,6 +36,11 @@ var over := false
 
 var up_levels := {"attack": 0, "speed": 0, "hp": 0}
 
+## 敲门鬼：最早第 3 波；击杀/刷出后按间隔延后，避免刚打完又立刻出
+var _knocker_next_round := 3
+const KNOCKER_SPAWN_GAP := 4   # 刷出后至少隔这么多波才再尝试
+const KNOCKER_KILL_GAP := 3    # 击杀后再至少空这么多波
+
 var _balance := false
 var _float_font: Font
 
@@ -181,9 +186,10 @@ func _on_round() -> void:
 	var count := 3 + round_num + maxi(0, round_num - 6)
 	for i in count:
 		_spawn_enemy(_random_spawn_pos())
-	# 精英敲门鬼：第 3 波起每 3 波尝试刷 1 只；场上已有存活敲门鬼则不再刷
-	if round_num >= 3 and round_num % 3 == 0 and not _has_alive_knocker():
+	# 精英敲门鬼：按 _knocker_next_round 节奏刷；场上已有存活则跳过
+	if round_num >= _knocker_next_round and not _has_alive_knocker():
 		_spawn_knocker(_random_spawn_pos())
+		_knocker_next_round = round_num + KNOCKER_SPAWN_GAP
 	_scale_obstacles()
 	hud.message("第 %d 波「鬼」涌现（%d 只）！" % [round_num, count])
 	if _balance:
@@ -229,7 +235,7 @@ func _spawn_knocker(pos: Vector2) -> void:
 	_world.add_child(k)
 	k.global_position = pos
 	k.setup(round_num, enraged, player, fog, level)
-	k.died.connect(_on_enemy_died)
+	k.died.connect(_on_knocker_died)
 	# 等出场飘字冒头后再弹全屏警告，避免被同帧波次横幅盖住注意力
 	_alert_knocker_spawn()
 
@@ -246,6 +252,12 @@ func _has_alive_knocker() -> bool:
 		if e is EliteKnocker and is_instance_valid(e) and e.alive:
 			return true
 	return false
+
+
+func _on_knocker_died(pos: Vector2, gold_amt: int) -> void:
+	# 打死后再空几波，避免尾刀当波/下波立刻补一只
+	_knocker_next_round = maxi(_knocker_next_round, round_num + KNOCKER_KILL_GAP)
+	_on_enemy_died(pos, gold_amt)
 
 
 func _on_enemy_died(pos: Vector2, gold_amt: int) -> void:

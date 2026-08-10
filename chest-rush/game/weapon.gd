@@ -12,6 +12,7 @@ const LOADOUT: Array[String] = [
 
 var data: WeaponData
 var damage_mult := 1.0  # 全局伤害倍率（attack 强化乘入）
+var range_mult := 1.0   # 域：攻击强化时范围略放大；刀/矢保持 1
 
 var _cool := 0.0
 var _player: Node2D
@@ -19,6 +20,7 @@ var _marker: Node2D
 var _marker_anim := "idle"
 var _space: PhysicsDirectSpaceState2D
 var _los_query: PhysicsRayQueryParameters2D
+var _aura_ring: Polygon2D  # 域常驻范围圈，升级时重算半径
 
 const ProjectileScene := preload("res://game/projectile.tscn")
 
@@ -62,12 +64,24 @@ func setup(idx: int, player_ref: Node2D) -> void:
 	_los_query.collision_mask = 4
 	_los_query.collide_with_areas = false
 	if data.pattern == WeaponData.Pattern.AURA:
-		var ring := Polygon2D.new()
-		ring.polygon = _ring_poly(data.attack_range, 48)
+		_aura_ring = Polygon2D.new()
+		_aura_ring.polygon = _ring_poly(_eff_range(), 48)
 		# 范围圈保持原紫；伤害字/HUD 用 data.color（火焰红）
-		ring.color = Color(0.753, 0.518, 0.988, 0.14)
-		ring.z_index = -1
-		add_child(ring)
+		_aura_ring.color = Color(0.753, 0.518, 0.988, 0.14)
+		_aura_ring.z_index = -1
+		add_child(_aura_ring)
+
+
+## 当前有效射程（域随攻击等级放大）
+func _eff_range() -> float:
+	return data.attack_range * range_mult
+
+
+## 攻击强化后刷新域范围圈
+func apply_range_mult(mult: float) -> void:
+	range_mult = mult
+	if _aura_ring != null and data != null:
+		_aura_ring.polygon = _ring_poly(_eff_range(), 48)
 
 
 func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
@@ -151,9 +165,9 @@ func _physics_process(delta: float) -> void:
 	_cool -= delta
 	if _cool > 0.0:
 		return
-	var target := _nearest_enemy(data.attack_range)
+	var target := _nearest_enemy(_eff_range())
 	# 破坏物（宝箱/障碍）只有近战可打，免疫远程与范围
-	var destruct: Node2D = _nearest_destructible(data.attack_range) if data.pattern == WeaponData.Pattern.SLASH else null
+	var destruct: Node2D = _nearest_destructible(_eff_range()) if data.pattern == WeaponData.Pattern.SLASH else null
 	if target == null and destruct == null:
 		return
 	_cool = data.cooldown
@@ -203,19 +217,20 @@ func _dmg() -> float:
 func _fire_slash(target: Node2D) -> void:
 	var src := _src()
 	var dir: Vector2 = (target.global_position - src).normalized()
+	var r := _eff_range()
 	# 挥刀动画：刀鬼（skeleton）播 attack，替代扇形弧光
 	_play_attack_anim(target)
 	# 前方扇区内无遮挡的敌人
 	for e in get_tree().get_nodes_in_group("enemies"):
 		var to: Vector2 = e.global_position - src
-		if to.length() <= data.attack_range and abs(to.angle_to(dir)) < 0.9 and not _blocked(e.global_position):
+		if to.length() <= r and abs(to.angle_to(dir)) < 0.9 and not _blocked(e.global_position):
 			e.take_damage(_dmg(), src, data.color)
 	# 前方扇区内的障碍（血量制；宝箱免疫攻击、贴近读条，跳过）
 	for d in get_tree().get_nodes_in_group("destructibles"):
 		if d.kind == Destructible.Kind.CHEST:
 			continue
 		var to: Vector2 = d.global_position - src
-		if to.length() <= data.attack_range and abs(to.angle_to(dir)) < 0.9 and not _blocked(d.global_position):
+		if to.length() <= r and abs(to.angle_to(dir)) < 0.9 and not _blocked(d.global_position):
 			d.take_damage(_dmg(), src, data.color)
 
 
@@ -223,11 +238,12 @@ func _fire_bolt(target: Node2D) -> void:
 	var src := _src()
 	var dir: Vector2 = (target.global_position - src).normalized()
 	# 射程截短到最近遮挡物，弹不朝墙外乱飞
-	var eff_range: float = data.attack_range
+	var max_r := _eff_range()
+	var eff_range: float = max_r
 	_los_query.collision_mask = 4
 	_los_query.exclude = []
 	_los_query.from = src
-	_los_query.to = src + dir * data.attack_range
+	_los_query.to = src + dir * max_r
 	var wall := _space.intersect_ray(_los_query)
 	if not wall.is_empty():
 		eff_range = src.distance_to(wall.position)
@@ -239,9 +255,10 @@ func _fire_bolt(target: Node2D) -> void:
 
 func _fire_aura() -> void:
 	var src := _src()
+	var r := _eff_range()
 	_spawn_aura_flames(src)
 	for e in get_tree().get_nodes_in_group("enemies"):
-		if src.distance_to(e.global_position) <= data.attack_range and not _blocked(e.global_position):
+		if src.distance_to(e.global_position) <= r and not _blocked(e.global_position):
 			e.take_damage(_dmg(), src, data.color)
 	# 破坏物免疫范围伤害（只有近战刀能开箱/清障）
 
@@ -255,7 +272,7 @@ func _spawn_aura_flames(origin: Vector2) -> void:
 	# 4 帧 / 10fps ≈ 0.4s，略加缓冲后强制回收（避免末帧灰点残留）
 	var life := 0.45
 	var spots: Array[Vector2] = [Vector2.ZERO]
-	var outer := data.attack_range * 0.62
+	var outer := _eff_range() * 0.62
 	for i in 8:
 		var a := TAU * float(i) / 8.0
 		spots.append(Vector2(cos(a), sin(a)) * outer)

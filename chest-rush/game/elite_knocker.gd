@@ -273,15 +273,16 @@ func _start_telegraph() -> void:
 	var dir := Vector2.DOWN
 	if _player and is_instance_valid(_player):
 		dir = (_player.global_position - global_position).normalized()
-	# 门框
+	# 门框：出现在敲门鬼面前较近处；整体门比例，框线尽量细
 	_door = Node2D.new()
-	_door.position = dir * 50.0
+	_door.position = dir * 22.0
 	var frame := Polygon2D.new()
 	frame.polygon = PackedVector2Array([Vector2(-16, -24), Vector2(16, -24), Vector2(16, 24), Vector2(-16, 24)])
 	frame.color = Color(0.5, 0.3, 0.7, 0.9)
 	_door.add_child(frame)
 	var inner := Polygon2D.new()
-	inner.polygon = PackedVector2Array([Vector2(-10, -18), Vector2(10, -18), Vector2(10, 24), Vector2(-10, 24)])
+	# 内外差 2px → 细描边（左右/顶）
+	inner.polygon = PackedVector2Array([Vector2(-14, -22), Vector2(14, -22), Vector2(14, 24), Vector2(-14, 24)])
 	inner.color = Color(0.1, 0.05, 0.15, 1.0)
 	_door.add_child(inner)
 	_door.modulate.a = 0.0
