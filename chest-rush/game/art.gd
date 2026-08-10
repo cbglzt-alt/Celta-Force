@@ -21,3 +21,22 @@ static func frame(key: String, i: int) -> String:
 
 static func frames_of(key: String) -> Array[String]:
 	return [frame(key, 1), frame(key, 2), frame(key, 3), frame(key, 4)]
+
+
+## Enemy_Animations_Set：怪物全套动画 spritesheet 目录（32px/帧）
+const ANIM_DIR := "res://assets/dungeon-assetpuck/Enemy_Animations_Set/"
+
+
+## 某怪物的全套动画表（idle/walk/attack/hurt/death → spritesheet 路径）
+## name 形如 "skeleton1" / "skeleton2" / "vampire"；skeleton2 的移动图名缺字母（源文件如此）
+static func anims_of(name: String) -> Dictionary:
+	var move_file := "enemies-%s_movement.png" % name
+	if name == "skeleton2":
+		move_file = "enemies-skeleton2_movemen.png"
+	return {
+		"idle": ANIM_DIR + "enemies-%s_idle.png" % name,
+		"walk": ANIM_DIR + move_file,
+		"attack": ANIM_DIR + "enemies-%s_attack.png" % name,
+		"hurt": ANIM_DIR + "enemies-%s_take_damage.png" % name,
+		"death": ANIM_DIR + "enemies-%s_death.png" % name,
+	}

@@ -8,6 +8,7 @@ signal died(pos, gold)
 const DATA: EnemyData = preload("res://game/data/enemy.tres")
 
 var hp: float
+var max_hp: float
 var speed: float
 var damage: float
 var gold_drop: int
@@ -28,15 +29,47 @@ var _base_color := Color("#ef4444")
 
 
 var _sprite: AnimatedSprite2D
+var _hp_bar: ColorRect
+var _hp_bar_t := 0.0
+var _anim := "idle"
+var _attacking := false
+var _dying := false
 
 
 func _ready() -> void:
 	add_to_group("enemies")
-	# 用 dungeon 像素 sprite（skeleton 鬼奴），替代色块圆
-	_sprite = _make_sprite(Art.frames_of("enemy"))
+	# 鬼奴：skeleton1 全套动画（idle/walk/attack/hurt/death）
+	_sprite = AnimHelper.build_sprite(Art.anims_of("skeleton1"), 9.0, 2.0)
 	add_child(_sprite)
-	# 隐藏旧色块体（保留节点以免破坏场景引用）
 	_body.visible = false
+	_make_hp_bar()
+
+
+## 切换动画（相同则不重播；death 优先于 _dying 锁）
+func _play(name: String) -> void:
+	if _anim == name:
+		return
+	if _dying and name != "death":
+		return
+	if _sprite.sprite_frames and _sprite.sprite_frames.has_animation(name):
+		_anim = name
+		_sprite.play(name)
+
+
+## 头顶血条：底条+前景条，受击才显示，3s 无伤害自动隐藏
+func _make_hp_bar() -> void:
+	var bg := ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.6)
+	bg.size = Vector2(28, 4)
+	bg.position = Vector2(-14, -26)
+	bg.z_index = 15
+	bg.visible = false
+	bg.name = "HpBarBg"
+	add_child(bg)
+	_hp_bar = ColorRect.new()
+	_hp_bar.color = Color("#ef4444")
+	_hp_bar.size = Vector2(28, 4)
+	bg.add_child(_hp_bar)
 
 
 func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
@@ -58,6 +91,7 @@ func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
 ## 由 Game 在 add_child 后调用
 func setup(round_num: int, is_enraged: bool, player_ref: Node2D, fog_ref: Node2D, level_ref: Node2D) -> void:
 	hp = DATA.hp_at(round_num)
+	max_hp = hp
 	damage = DATA.damage_at(round_num)
 	gold_drop = DATA.gold_at(round_num)
 	speed = DATA.speed_at(round_num)
@@ -108,31 +142,79 @@ func _physics_process(delta: float) -> void:
 	if abs(velocity.x) > 1.0:
 		_sprite.flip_h = velocity.x < 0.0
 
+	# 动画状态：受击/攻击/死亡优先，否则按移动切 walk/idle
+	if not _dying and not _attacking:
+		_play("walk" if velocity.length() > 5.0 else "idle")
+
 	_touch_timer -= delta
 	if _touch_timer <= 0.0:
 		for b in _hit_area.get_overlapping_bodies():
 			if b.is_in_group("player"):
 				b.take_damage(damage)
 				_touch_timer = contact_cooldown
+				_play_attack()
 				break
 
 
-func _process(_delta: float) -> void:
+## 近身攻击动画（播完回 idle/walk）
+func _play_attack() -> void:
+	if _dying or _attacking:
+		return
+	_attacking = true
+	_play("attack")
+	await _sprite.animation_finished
+	_attacking = false
+	_anim = ""  # 强制下一帧重切回 walk/idle
+
+
+func _process(delta: float) -> void:
 	if _fog != null:
 		visible = _fog.is_visible_world(global_position)
+	# 血条无伤害 3s 后隐藏
+	if _hp_bar_t > 0.0:
+		_hp_bar_t -= delta
+		if _hp_bar_t <= 0.0:
+			var bg := get_node_or_null("HpBarBg")
+			if bg:
+				bg.visible = false
 
 
 func take_damage(n: float, from_pos: Vector2, color := Color(1, 1, 1)) -> void:
+	if _dying:
+		return
 	hp -= n
 	_flash()
+	_show_hp_bar()
 	var game = get_tree().get_first_node_in_group("game")
 	if game:
 		game.spawn_float_text(global_position, "-%d" % int(n), color)
 	if hp <= 0.0:
-		died.emit(global_position, gold_drop)
-		set_deferred("monitoring", false)
-		hide()
-		call_deferred("queue_free")
+		_die()
+	elif not _attacking:
+		_play("hurt")  # 受击后仰（未在挥刀时）
+
+
+## 死亡：播 death 动画，播完再销毁（不再瞬移消失）
+func _die() -> void:
+	_dying = true
+	set_physics_process(false)  # 停止移动/寻路/伤害
+	set_deferred("monitoring", false)
+	$CollisionShape2D.set_deferred("disabled", true)
+	var bg := get_node_or_null("HpBarBg")
+	if bg:
+		bg.visible = false
+	died.emit(global_position, gold_drop)
+	_play("death")
+	await _sprite.animation_finished
+	call_deferred("queue_free")
+
+
+func _show_hp_bar() -> void:
+	var bg := get_node_or_null("HpBarBg")
+	if bg:
+		bg.visible = true
+		_hp_bar.size.x = 28.0 * clampf(hp / max_hp, 0.0, 1.0)
+		_hp_bar_t = 3.0  # 3s 无伤害自动隐藏
 
 
 func _flash() -> void:
