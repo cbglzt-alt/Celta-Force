@@ -21,6 +21,8 @@ enum State { SPAWN, CHASE, TELEGRAPH, CHANNEL, BURST, COOLDOWN }
 
 var hp: float
 var speed: float
+var damage: float
+var contact_cooldown: float
 var alive := true
 var enraged := false
 
@@ -37,6 +39,8 @@ var _path := PackedVector2Array()
 var _path_idx := 0
 var _repath := 0.0
 var _touch_timer := 0.0
+var _attacking := false
+var _hurt_lock := 0.0
 var _base_modulate := Color(1, 1, 1)
 
 var _sprite: AnimatedSprite2D
@@ -73,6 +77,9 @@ func _play(name: String) -> void:
 		return
 	if not alive and name != "death":
 		return
+	# 普攻挥砍中不打断（技能态可强制切到 attack）
+	if _attacking and name != "attack" and name != "death" and name != "hurt":
+		return
 	if _sprite.sprite_frames and _sprite.sprite_frames.has_animation(name):
 		_anim = name
 		_sprite.play(name)
@@ -103,6 +110,8 @@ func setup(round_num: int, is_enraged: bool, player_ref: Node2D, fog_ref: Node2D
 	var ed: EnemyData = Enemy.DATA
 	hp = ed.hp_at(round_num) * hp_mult
 	_max_hp = hp
+	damage = ed.damage_at(round_num)  # 普攻与同波杂兵同伤
+	contact_cooldown = ed.contact_cooldown
 	speed = ed.speed_at(round_num) * 0.85  # 精英略慢，压迫感来自技能而非速度
 	_interrupt_threshold = hp * interrupt_frac
 	_player = player_ref
@@ -118,6 +127,7 @@ func apply_enrage() -> void:
 		return
 	enraged = true
 	speed *= 1.5
+	contact_cooldown *= Enemy.DATA.enrage_cooldown_mult
 	_base_modulate = Color("#ff7b00")
 	_sprite.modulate = _base_modulate
 
@@ -144,6 +154,7 @@ func _physics_process(delta: float) -> void:
 	if not alive:
 		return
 	_state_t -= delta
+	_hurt_lock = maxf(_hurt_lock - delta, 0.0)
 	match _state:
 		State.SPAWN:
 			velocity = Vector2.ZERO
@@ -152,10 +163,12 @@ func _physics_process(delta: float) -> void:
 				_state = State.CHASE
 		State.CHASE:
 			_chase(delta)
-			_play("walk" if velocity.length() > 5.0 else "idle")
+			if not _attacking and _hurt_lock <= 0.0:
+				_play("walk" if velocity.length() > 5.0 else "idle")
 			_cool_t -= delta
-			# 靠近玩家且技能就绪 → 驻足预告
-			if _cool_t <= 0.0 and _player and global_position.distance_to(_player.global_position) < 220.0:
+			_try_basic_attack(delta)
+			# 靠近玩家且技能就绪 → 驻足预告（普攻中不打断挥砍）
+			if not _attacking and _cool_t <= 0.0 and _player and global_position.distance_to(_player.global_position) < 220.0:
 				_start_telegraph()
 		State.TELEGRAPH:
 			velocity = Vector2.ZERO
@@ -177,13 +190,59 @@ func _physics_process(delta: float) -> void:
 				_cool_t = skill_cooldown
 		State.COOLDOWN:
 			velocity = Vector2.ZERO
-			_play("idle")
+			if not _attacking and _hurt_lock <= 0.0:
+				_play("idle")
 			if _state_t <= 0.0:
 				_state = State.CHASE
 				_cool_t = skill_cooldown
 	move_and_slide()
-	if _sprite and abs(velocity.x) > 1.0:
+	_update_facing()
+
+
+## 朝向：近身/技能/普攻面向玩家；远距才跟 velocity，并提高翻转阈值防抖
+func _update_facing() -> void:
+	if _sprite == null or _player == null or not is_instance_valid(_player):
+		return
+	var dx := _player.global_position.x - global_position.x
+	var near := global_position.distance_to(_player.global_position) < 72.0
+	var skill_pose := _state == State.TELEGRAPH or _state == State.CHANNEL or _state == State.BURST
+	if _attacking or near or skill_pose:
+		if absf(dx) > 6.0:
+			_sprite.flip_h = dx < 0.0
+		return
+	# 远距追击：提高阈值，避免路径点左右摆动时每帧镜像
+	if absf(velocity.x) > 12.0:
 		_sprite.flip_h = velocity.x < 0.0
+
+
+## 追击期贴身普攻：碰触 → attack 动画 → 命中帧结算（对齐杂兵）
+func _try_basic_attack(delta: float) -> void:
+	_touch_timer -= delta
+	if _attacking or _hurt_lock > 0.0 or _touch_timer > 0.0:
+		return
+	if _player == null or not is_instance_valid(_player) or not _player.alive:
+		return
+	for b in _hit_area.get_overlapping_bodies():
+		if b.is_in_group("player"):
+			_touch_timer = contact_cooldown
+			_basic_attack(b)
+			break
+
+
+func _basic_attack(target: Node2D) -> void:
+	if not alive or _attacking:
+		return
+	_attacking = true
+	_play("attack")
+	var anim_len: float = _sprite.sprite_frames.get_frame_count("attack") / _sprite.sprite_frames.get_animation_speed("attack")
+	await get_tree().create_timer(anim_len * 0.4).timeout
+	if alive and is_instance_valid(target) and target.alive:
+		if global_position.distance_to(target.global_position) < 55.0:
+			target.take_damage(damage)
+	if is_instance_valid(_sprite):
+		await _sprite.animation_finished
+	_attacking = false
+	_anim = ""  # 强制下一帧重切 walk/idle
 
 
 func _chase(delta: float) -> void:
@@ -429,7 +488,10 @@ func _skill_tick(caught_player: bool, caught_enemies: Array, player_pct: float, 
 
 ## 被打断：门碎裂、回游走
 func _interrupt() -> void:
+	_attacking = false
 	_play("hurt")  # 被打断后仰
+	if _sprite.sprite_frames and _sprite.sprite_frames.has_animation("hurt"):
+		_hurt_lock = _sprite.sprite_frames.get_frame_count("hurt") / _sprite.sprite_frames.get_animation_speed("hurt")
 	_state = State.COOLDOWN
 	_state_t = 1.0
 	_cool_t = skill_cooldown
@@ -468,11 +530,16 @@ func take_damage(n: float, from_pos: Vector2, color := Color(1, 1, 1)) -> void:
 			_interrupt()
 	if hp <= 0.0:
 		_die()
+	elif not _attacking and _state == State.CHASE:
+		_play("hurt")
+		if _sprite.sprite_frames and _sprite.sprite_frames.has_animation("hurt"):
+			_hurt_lock = _sprite.sprite_frames.get_frame_count("hurt") / _sprite.sprite_frames.get_animation_speed("hurt")
 
 
 ## 死亡：播 death 动画，播完再销毁（保留门框/危险区清理）
 func _die() -> void:
 	alive = false
+	_attacking = false
 	set_physics_process(false)
 	set_deferred("monitoring", false)
 	$CollisionShape2D.set_deferred("disabled", true)
