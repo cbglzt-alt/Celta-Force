@@ -22,6 +22,8 @@ var _result_panel: ColorRect
 var _result_title: Label
 var _result_stats: Label
 
+var _ui_scale := 1.0  # 手机端按物理宽度反放大 UI
+
 
 func _ready() -> void:
 	# Web 端无系统字体，优先用随包子集字体（Noto Sans SC，OFL 许可）
@@ -31,7 +33,17 @@ func _ready() -> void:
 		sf.font_names = PackedStringArray(
 			["Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "sans-serif"])
 		_font = sf
+	_ui_scale = _calc_ui_scale()
 	_build_ui()
+
+
+## 手机端画布被整体缩小（如 1280 逻辑宽缩到 ~390 物理宽），UI 需按物理宽度
+## 反放大，保证最小字体物理尺寸 ≥12px。桌面窗口不小于设计宽度时保持 1.0。
+func _calc_ui_scale() -> float:
+	var phys := DisplayServer.window_get_size()
+	if phys.x <= 0:
+		return 1.0
+	return clampf(1280.0 / float(phys.x), 1.0, 4.0)
 
 
 func setup(g: Node2D) -> void:
@@ -131,11 +143,12 @@ func _restart() -> void:
 # ---------- UI 构建 ----------
 
 func _build_ui() -> void:
+	var s: float = _ui_scale
 	# 左上：HP 数值 / 金币 / 任务（血条在主角头顶）
 	var tl := VBoxContainer.new()
 	tl.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	tl.position = Vector2(14, 10)
-	tl.add_theme_constant_override("separation", 4)
+	tl.position = Vector2(14 * s, 10 * s)
+	tl.add_theme_constant_override("separation", int(4 * s))
 	add_child(tl)
 	_hp_text = _mk_label(tl, "HP", 14)
 	_gold_label = _mk_label(tl, "", 16)
@@ -147,8 +160,8 @@ func _build_ui() -> void:
 	var ghosts := HBoxContainer.new()
 	ghosts.set_anchors_preset(Control.PRESET_CENTER_LEFT)
 	ghosts.grow_vertical = Control.GROW_DIRECTION_BOTH
-	ghosts.position = Vector2(14, -30)
-	ghosts.add_theme_constant_override("separation", 16)
+	ghosts.position = Vector2(14 * s, -30 * s)
+	ghosts.add_theme_constant_override("separation", int(16 * s))
 	add_child(ghosts)
 	for i in 3:
 		_ghost_labels.append(_mk_label(ghosts, "", 16))
@@ -157,8 +170,8 @@ func _build_ui() -> void:
 	var tr := VBoxContainer.new()
 	tr.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	tr.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	tr.position = Vector2(-180, 10)
-	tr.add_theme_constant_override("separation", 4)
+	tr.position = Vector2(-180 * s, 10 * s)
+	tr.add_theme_constant_override("separation", int(4 * s))
 	add_child(tr)
 	_round_label = _mk_label(tr, "", 16)
 	_time_label = _mk_label(tr, "", 16)
@@ -166,8 +179,8 @@ func _build_ui() -> void:
 	# 左下：强化（触控按钮占位后移至左上 HP 下方）
 	var bl := HBoxContainer.new()
 	bl.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	bl.position = Vector2(14, 96)
-	bl.add_theme_constant_override("separation", 24)
+	bl.position = Vector2(14 * s, 96 * s)
+	bl.add_theme_constant_override("separation", int(24 * s))
 	add_child(bl)
 	_up_labels["attack"] = _mk_label(bl, "", 15)
 	_up_labels["speed"] = _mk_label(bl, "", 15)
@@ -177,15 +190,15 @@ func _build_ui() -> void:
 	var br := VBoxContainer.new()
 	br.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	br.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	br.position = Vector2(-280, 78)
+	br.position = Vector2(-280 * s, 78 * s)
 	add_child(br)
 	_vision_label = _mk_label(br, "", 15)
 
 	# 顶部中央：撤离倒计时
 	_countdown_label = _mk_label(self, "", 34)
 	_countdown_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_countdown_label.custom_minimum_size = Vector2(600, 50)
-	_countdown_label.position = Vector2(-300, 6)
+	_countdown_label.custom_minimum_size = Vector2(600 * s, 50 * s)
+	_countdown_label.position = Vector2(-300 * s, 6 * s)
 	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_countdown_label.add_theme_color_override("font_color", Color("#f87171"))
 	_countdown_label.visible = false
@@ -193,11 +206,11 @@ func _build_ui() -> void:
 	# 中央横幅
 	_banner = _mk_label(self, "", 26)
 	_banner.set_anchors_preset(Control.PRESET_CENTER)
-	_banner.custom_minimum_size = Vector2(800, 60)
-	_banner.position = Vector2(-400, -120)
+	_banner.custom_minimum_size = Vector2(800 * s, 60 * s)
+	_banner.position = Vector2(-400 * s, -120 * s)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.add_theme_color_override("font_color", Color("#fde68a"))
-	_banner.add_theme_constant_override("outline_size", 6)
+	_banner.add_theme_constant_override("outline_size", int(6 * s))
 	_banner.modulate.a = 0.0
 
 	# 全屏大字警告：用满屏 CenterContainer，避免锚点 Label 尺寸为 0 画不出来
@@ -242,7 +255,7 @@ func _build_result_panel() -> void:
 	var btn := Button.new()
 	btn.text = "重新开始 (R)"
 	btn.add_theme_font_override("font", _font)
-	btn.add_theme_font_size_override("font_size", 20)
+	btn.add_theme_font_size_override("font_size", maxi(12, int(round(20 * _ui_scale))))
 	btn.pressed.connect(_restart)
 	vb.add_child(btn)
 
@@ -264,8 +277,8 @@ func _mk_label(parent: Node, text: String, size: int) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_override("font", _font)
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", maxi(12, int(round(size * _ui_scale))))
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	l.add_theme_constant_override("outline_size", 4)
+	l.add_theme_constant_override("outline_size", maxi(3, int(round(4 * _ui_scale))))
 	parent.add_child(l)
 	return l

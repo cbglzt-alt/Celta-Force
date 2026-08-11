@@ -19,6 +19,7 @@ const KNOB_RADIUS := 26.0     # 摇杆头半径
 const DEAD_ZONE := 0.12       # 摇杆死区（避免轻微抖动）
 
 var _font: Font
+var _ui_scale := 1.0  # 与 HUD 相同的手机端反放大系数
 
 var _joy_index := -1          # 摇杆占用的手指 index（-1 = 空闲）
 var _joy_origin := Vector2.ZERO
@@ -36,6 +37,7 @@ func _ready() -> void:
 		sf.font_names = PackedStringArray(
 			["Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "sans-serif"])
 		_font = sf
+	_ui_scale = _calc_ui_scale()
 	active = DisplayServer.is_touchscreen_available() \
 		or OS.has_feature("touch") \
 		or DisplayServer.get_name() in ["Android", "iOS"]
@@ -46,6 +48,14 @@ func _ready() -> void:
 	_build_buttons()
 
 
+## 与 hud.gd 相同的 UI 反放大策略：手机端画布缩小，触控控件按物理宽度放大
+func _calc_ui_scale() -> float:
+	var phys := DisplayServer.window_get_size()
+	if phys.x <= 0:
+		return 1.0
+	return clampf(1280.0 / float(phys.x), 1.0, 4.0)
+
+
 func _exit_tree() -> void:
 	move_dir = Vector2.ZERO
 
@@ -53,25 +63,27 @@ func _exit_tree() -> void:
 # ---------- 摇杆 ----------
 
 func _build_joystick() -> void:
+	var s: float = _ui_scale
 	# 底盘：半透明圆盘 + 描边
 	_base = Control.new()
 	_base.visible = false
 	_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_base.z_index = 100
 	add_child(_base)
-	_base.add_child(_make_circle(JOY_RADIUS, Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.35)))
+	_base.add_child(_make_circle(JOY_RADIUS * s, Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.35)))
 	# 摇杆头：小实心圆
 	_knob = Control.new()
 	_knob.visible = false
 	_knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_knob.z_index = 101
 	add_child(_knob)
-	_knob.add_child(_make_circle(KNOB_RADIUS, Color(1, 1, 1, 0.45), Color(1, 1, 1, 0.7)))
+	_knob.add_child(_make_circle(KNOB_RADIUS * s, Color(1, 1, 1, 0.45), Color(1, 1, 1, 0.7)))
 
 
 func _input(event: InputEvent) -> void:
 	if not active or not visible:
 		return
+	var s: float = _ui_scale
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			# 手指落下：摇杆空闲 且 不在按钮上 → 在此处开摇杆
@@ -88,22 +100,24 @@ func _input(event: InputEvent) -> void:
 
 
 func _show_joy(at: Vector2) -> void:
-	_base.position = at - Vector2(JOY_RADIUS, JOY_RADIUS)
-	_knob.position = at - Vector2(KNOB_RADIUS, KNOB_RADIUS)
+	var s: float = _ui_scale
+	_base.position = at - Vector2(JOY_RADIUS * s, JOY_RADIUS * s)
+	_knob.position = at - Vector2(KNOB_RADIUS * s, KNOB_RADIUS * s)
 	_base.visible = true
 	_knob.visible = true
 	move_dir = Vector2.ZERO
 
 
 func _update_joy(pos: Vector2) -> void:
+	var s: float = _ui_scale
 	var offset := pos - _joy_origin
-	var clamped := offset.limit_length(JOY_RADIUS)
-	var dir := clamped / JOY_RADIUS
+	var clamped := offset.limit_length(JOY_RADIUS * s)
+	var dir := clamped / (JOY_RADIUS * s)
 	if dir.length() < DEAD_ZONE:
 		dir = Vector2.ZERO
 	move_dir = dir
 	# 摇杆头跟随（限位在底盘内）
-	_knob.position = _joy_origin + clamped - Vector2(KNOB_RADIUS, KNOB_RADIUS)
+	_knob.position = _joy_origin + clamped - Vector2(KNOB_RADIUS * s, KNOB_RADIUS * s)
 
 
 func _release_joy() -> void:
@@ -116,9 +130,10 @@ func _release_joy() -> void:
 # ---------- 按钮 ----------
 
 func _build_buttons() -> void:
-	var margin := 24
-	var size := Vector2(84, 84)
-	var gap := 12
+	var s: float = _ui_scale
+	var margin := 24 * s
+	var size := Vector2(84 * s, 84 * s)
+	var gap := 12 * s
 	# 左下角：攻击/移速/生命 3 个大按钮（竖排，高频操作区）
 	var buys: Array = [
 		["攻击", "buy_attack", Color("#fb923c")],
@@ -135,8 +150,8 @@ func _build_buttons() -> void:
 	# 右下角：视野按钮（独立放置，尺寸与其他按钮一致）
 	var vision := _make_button("视野", Color("#a78bfa"), size)
 	vision.position = Vector2(
-		get_viewport().get_visible_rect().size.x - 84 - margin,
-		get_viewport().get_visible_rect().size.y - 84 - margin
+		get_viewport().get_visible_rect().size.x - size.x - margin,
+		get_viewport().get_visible_rect().size.y - size.y - margin
 	)
 	_buttons.append(vision)
 	# 按钮监听：按下直接调 game 方法（与键盘 action 等效）
@@ -152,13 +167,13 @@ func _make_button(text: String, color: Color, bsize: Vector2) -> Button:
 	b.size = bsize
 	b.mouse_filter = Control.MOUSE_FILTER_STOP
 	b.add_theme_font_override("font", _font)
-	b.add_theme_font_size_override("font_size", 20)
+	b.add_theme_font_size_override("font_size", maxi(12, int(round(20 * _ui_scale))))
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(color.r, color.g, color.b, 0.30)
-	normal.set_corner_radius_all(14)
+	normal.set_corner_radius_all(int(14 * _ui_scale))
 	var pressed := StyleBoxFlat.new()
 	pressed.bg_color = Color(color.r, color.g, color.b, 0.55)
-	pressed.set_corner_radius_all(14)
+	pressed.set_corner_radius_all(int(14 * _ui_scale))
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", normal)
 	b.add_theme_stylebox_override("pressed", pressed)
