@@ -37,13 +37,15 @@ func _ready() -> void:
 	_build_ui()
 
 
-## 手机端画布被整体缩小（如 1280 逻辑宽缩到 ~390 物理宽），UI 需按物理宽度
-## 反放大，保证最小字体物理尺寸 ≥12px。桌面窗口不小于设计宽度时保持 1.0。
+## 手机端画布被整体缩小（如 1280 逻辑宽缩到 ~390 CSS 宽），UI 需按画布
+## 实际渲染缩放反放大，保证最小字体物理尺寸 ≥12px。桌面窗口不缩小则保持 1.0。
+## 用 viewport 的 canvas_transform 直接读渲染缩放——比 DisplayServer 窗口
+## API 可靠（后者在 Web/headless 下返回值不稳定，甚至含 devicePixelRatio）。
 func _calc_ui_scale() -> float:
-	var phys := DisplayServer.window_get_size()
-	if phys.x <= 0:
+	var s := get_viewport().get_canvas_transform().get_scale().x
+	if s <= 0.0:
 		return 1.0
-	return clampf(1280.0 / float(phys.x), 1.0, 4.0)
+	return clampf(1.0 / s, 1.0, 4.0)
 
 
 func setup(g: Node2D) -> void:

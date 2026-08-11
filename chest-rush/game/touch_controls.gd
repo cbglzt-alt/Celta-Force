@@ -48,12 +48,12 @@ func _ready() -> void:
 	_build_buttons()
 
 
-## 与 hud.gd 相同的 UI 反放大策略：手机端画布缩小，触控控件按物理宽度放大
+## 与 hud.gd 相同的 UI 反放大策略：直接读 canvas_transform 的渲染缩放
 func _calc_ui_scale() -> float:
-	var phys := DisplayServer.window_get_size()
-	if phys.x <= 0:
+	var s := get_viewport().get_canvas_transform().get_scale().x
+	if s <= 0.0:
 		return 1.0
-	return clampf(1280.0 / float(phys.x), 1.0, 4.0)
+	return clampf(1.0 / s, 1.0, 4.0)
 
 
 func _exit_tree() -> void:
