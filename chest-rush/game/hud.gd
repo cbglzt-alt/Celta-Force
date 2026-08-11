@@ -23,6 +23,7 @@ var _result_title: Label
 var _result_stats: Label
 
 var _ui_scale := 1.0  # 手机端按物理宽度反放大 UI
+var _pending_message := ""  # UI 构建前收到的消息，构建后重放
 
 
 func _ready() -> void:
@@ -33,8 +34,30 @@ func _ready() -> void:
 		sf.font_names = PackedStringArray(
 			["Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "sans-serif"])
 		_font = sf
+	# Web 上引擎启动时窗口尺寸可能未定，延迟到首帧后再计算缩放
+	await get_tree().process_frame
 	_ui_scale = _calc_ui_scale()
 	_build_ui()
+	if _pending_message != "":
+		message(_pending_message)
+		_pending_message = ""
+	if game != null:
+		refresh()
+	# 窗口尺寸变化（旋转/拉伸）时重新计算并重建 UI
+	get_viewport().size_changed.connect(_on_viewport_resized)
+
+
+func _on_viewport_resized() -> void:
+	await get_tree().process_frame
+	var s := _calc_ui_scale()
+	if absf(s - _ui_scale) < 0.05:
+		return
+	_ui_scale = s
+	# 重建 UI（清掉旧节点再构建，保证字号/位置按新系数生效）
+	for c in get_children():
+		c.queue_free()
+	_build_ui()
+	setup(game)
 
 
 ## 手机端画布被整体缩小（如 1280 逻辑宽缩到 ~390 CSS 宽），UI 需按画布
@@ -50,6 +73,8 @@ func _calc_ui_scale() -> float:
 
 func setup(g: Node2D) -> void:
 	game = g
+	if _hp_text == null:
+		return  # UI 尚未构建（_ready 在等首帧），构建完成后会刷新
 	refresh()
 
 
@@ -82,6 +107,10 @@ func refresh() -> void:
 
 
 func message(text: String, duration := 2.2) -> void:
+	if _banner == null:
+		# UI 尚未构建（_ready 在等首帧），缓存消息待构建后重放
+		_pending_message = text
+		return
 	_banner.text = text
 	if _banner_tween and _banner_tween.is_valid():
 		_banner_tween.kill()

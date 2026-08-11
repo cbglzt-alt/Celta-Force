@@ -37,13 +37,33 @@ func _ready() -> void:
 		sf.font_names = PackedStringArray(
 			["Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "sans-serif"])
 		_font = sf
-	_ui_scale = _calc_ui_scale()
 	active = DisplayServer.is_touchscreen_available() \
 		or OS.has_feature("touch") \
 		or DisplayServer.get_name() in ["Android", "iOS"]
 	if not active:
 		visible = false
 		return
+	# Web 上引擎启动时窗口尺寸可能未定，延迟到首帧后再计算缩放
+	await get_tree().process_frame
+	_ui_scale = _calc_ui_scale()
+	_build_joystick()
+	_build_buttons()
+	# 窗口尺寸变化（旋转/拉伸）时重新计算并重建
+	get_viewport().size_changed.connect(_on_viewport_resized)
+
+
+func _on_viewport_resized() -> void:
+	await get_tree().process_frame
+	var s := _calc_ui_scale()
+	if absf(s - _ui_scale) < 0.05:
+		return
+	_ui_scale = s
+	# 重建触控控件
+	_joy_index = -1
+	move_dir = Vector2.ZERO
+	for c in get_children():
+		c.queue_free()
+	_buttons.clear()
 	_build_joystick()
 	_build_buttons()
 
