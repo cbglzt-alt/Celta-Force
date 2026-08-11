@@ -132,11 +132,11 @@ func _build_buttons() -> void:
 			get_viewport().get_visible_rect().size.y - (buys.size() - i) * (size.y + gap) - margin
 		)
 		_buttons.append(b)
-	# 右下角：视野按钮（独立放置，矮扁防误触）
-	var vision := _make_button("视野", Color("#a78bfa"), Vector2(84, 56))
+	# 右下角：视野按钮（独立放置，尺寸与其他按钮一致）
+	var vision := _make_button("视野", Color("#a78bfa"), size)
 	vision.position = Vector2(
 		get_viewport().get_visible_rect().size.x - 84 - margin,
-		get_viewport().get_visible_rect().size.y - 56 - margin
+		get_viewport().get_visible_rect().size.y - 84 - margin
 	)
 	_buttons.append(vision)
 	# 按钮监听：按下直接调 game 方法（与键盘 action 等效）
