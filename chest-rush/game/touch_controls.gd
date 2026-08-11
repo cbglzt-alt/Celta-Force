@@ -18,6 +18,8 @@ const JOY_RADIUS := 64.0      # 摇杆底盘半径
 const KNOB_RADIUS := 26.0     # 摇杆头半径
 const DEAD_ZONE := 0.12       # 摇杆死区（避免轻微抖动）
 
+var _font: Font
+
 var _joy_index := -1          # 摇杆占用的手指 index（-1 = 空闲）
 var _joy_origin := Vector2.ZERO
 var _base: Control
@@ -27,6 +29,13 @@ var _buttons: Array[Button] = []
 
 func _ready() -> void:
 	layer = 120  # 盖在 HUD 之上，但摇杆区避开左上/左下信息栏
+	# Web 端无系统字体，用随包子集字体（与 HUD 一致）
+	_font = load("res://game/fonts/NotoSansSC-Subset.otf")
+	if _font == null:
+		var sf := SystemFont.new()
+		sf.font_names = PackedStringArray(
+			["Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "sans-serif"])
+		_font = sf
 	active = DisplayServer.is_touchscreen_available() \
 		or OS.has_feature("touch") \
 		or DisplayServer.get_name() in ["Android", "iOS"]
@@ -140,6 +149,7 @@ func _make_button(text: String, color: Color, bsize: Vector2) -> Button:
 	b.text = text
 	b.size = bsize
 	b.mouse_filter = Control.MOUSE_FILTER_STOP
+	b.add_theme_font_override("font", _font)
 	b.add_theme_font_size_override("font_size", 20)
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(color.r, color.g, color.b, 0.30)
