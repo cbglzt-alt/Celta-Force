@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://game/game.gd" id="1"]
 [ext_resource type="Script" path="res://game/level_map.gd" id="2"]
 [ext_resource type="Script" path="res://game/fog_of_war.gd" id="3"]
 [ext_resource type="PackedScene" path="res://game/hud.tscn" id="4"]
+[ext_resource type="Script" path="res://game/touch_controls.gd" id="5"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1")
@@ -29,3 +30,6 @@ script = ExtResource("3")
 one_shot = true
 
 [node name="HUD" parent="." instance=ExtResource("4")]
+
+[node name="TouchControls" type="CanvasLayer" parent="."]
+script = ExtResource("5")

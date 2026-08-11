@@ -92,7 +92,10 @@ func _physics_process(_delta: float) -> void:
 		move_and_slide()
 		_play("idle")
 		return
-	var dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var dir := TouchControls.move_dir
+	if dir == Vector2.ZERO:
+		# 无触摸（或摇杆在死区）时回退键盘
+		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	velocity = dir * base_speed * speed_mult
 	move_and_slide()
 	# 像素 sprite 不旋转（会糊），用水平翻转表左右朝向
