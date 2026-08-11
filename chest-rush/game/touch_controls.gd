@@ -119,29 +119,31 @@ func _build_buttons() -> void:
 	var margin := 24
 	var size := Vector2(84, 84)
 	var gap := 12
-	# 右侧竖排：视野(小) + 攻击 + 移速 + 生命
-	var actions: Array = [
-		["视野", "use_vision", Color("#a78bfa")],
+	# 左下角：攻击/移速/生命 3 个大按钮（竖排，高频操作区）
+	var buys: Array = [
 		["攻击", "buy_attack", Color("#fb923c")],
 		["移速", "buy_speed", Color("#4ade80")],
 		["生命", "buy_hp", Color("#f87171")],
 	]
-	for i in actions.size():
-		var is_vision: bool = (i == 0)
-		var bsize: Vector2 = Vector2(84, 56) if is_vision else size
-		var b := _make_button(actions[i][0], actions[i][2], bsize)
+	for i in buys.size():
+		var b := _make_button(buys[i][0], buys[i][2], size)
 		b.position = Vector2(
-			get_viewport().get_visible_rect().size.x - bsize.x - margin,
-			get_viewport().get_visible_rect().size.y - (actions.size() - i) * (size.y + gap) - margin
+			margin,
+			get_viewport().get_visible_rect().size.y - (buys.size() - i) * (size.y + gap) - margin
 		)
-		if is_vision:
-			b.position.y += (size.y - bsize.y)  # 视野键靠上对齐
 		_buttons.append(b)
+	# 右下角：视野按钮（独立放置，矮扁防误触）
+	var vision := _make_button("视野", Color("#a78bfa"), Vector2(84, 56))
+	vision.position = Vector2(
+		get_viewport().get_visible_rect().size.x - 84 - margin,
+		get_viewport().get_visible_rect().size.y - 56 - margin
+	)
+	_buttons.append(vision)
 	# 按钮监听：按下直接调 game 方法（与键盘 action 等效）
-	_buttons[1].button_down.connect(_buy_attack)
-	_buttons[2].button_down.connect(_buy_speed)
-	_buttons[3].button_down.connect(_buy_hp)
-	_buttons[0].button_down.connect(_use_vision)
+	_buttons[0].button_down.connect(_buy_attack)
+	_buttons[1].button_down.connect(_buy_speed)
+	_buttons[2].button_down.connect(_buy_hp)
+	_buttons[3].button_down.connect(_use_vision)
 
 
 func _make_button(text: String, color: Color, bsize: Vector2) -> Button:

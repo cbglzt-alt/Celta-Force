@@ -163,23 +163,21 @@ func _build_ui() -> void:
 	_round_label = _mk_label(tr, "", 16)
 	_time_label = _mk_label(tr, "", 16)
 
-	# 左下：强化
+	# 左下：强化（触控按钮占位后移至左上 HP 下方）
 	var bl := HBoxContainer.new()
-	bl.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	bl.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	bl.position = Vector2(14, -40)
+	bl.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	bl.position = Vector2(14, 96)
 	bl.add_theme_constant_override("separation", 24)
 	add_child(bl)
 	_up_labels["attack"] = _mk_label(bl, "", 15)
 	_up_labels["speed"] = _mk_label(bl, "", 15)
 	_up_labels["hp"] = _mk_label(bl, "", 15)
 
-	# 右下：视野
+	# 右下：视野（触控按钮占位后移至右上波次下方）
 	var br := VBoxContainer.new()
-	br.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	br.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	br.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	br.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	br.position = Vector2(-280, -40)
+	br.position = Vector2(-280, 78)
 	add_child(br)
 	_vision_label = _mk_label(br, "", 15)
 
