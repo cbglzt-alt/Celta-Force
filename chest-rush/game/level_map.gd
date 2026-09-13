@@ -263,18 +263,22 @@ func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> voi
 	var tex: Texture2D = load(path)
 	if tex == null:
 		return
-	# 统一用静态首帧（条带取第一帧，单帧直接用）
+	# 切第一帧：宽度=cell，高度=图片实际高度（避免 cell×cell 切到下一帧）
 	var sprite_tex: Texture2D = tex
 	if cell > 0 and tex.get_width() > cell:
-		sprite_tex = Art.slice_strip(path, cell, 0)
+		var src_img := tex.get_image()
+		var img_h := src_img.get_height()
+		var sub := Image.create(cell, img_h, false, Image.FORMAT_RGBA8)
+		sub.blit_rect(src_img, Rect2i(0, 0, cell, img_h), Vector2i.ZERO)
+		sprite_tex = ImageTexture.create_from_image(sub)
 	var s := Sprite2D.new()
 	s.texture = sprite_tex
 	# 树大、灌木中、岩石小（岩石缩小以与可攻击障碍区分）
-	var is_tree := cell >= 256
-	var is_bush := cell >= 128 and cell < 256
-	var sc := 0.22 if is_tree else (0.30 if is_bush else 0.30)
+	var is_tree := cell >= 192
+	var is_bush := cell >= 128 and cell < 192
+	var sc := 0.16 if is_tree else (0.30 if is_bush else 0.30)
 	s.scale = Vector2(sc, sc)
-	s.z_index = -3 if is_tree else -5
+	s.z_index = 3 if is_tree else -5
 	add_child(s)
 	s.global_position = pos
 	# 摇曳 tween：树用旋转，灌木用缩放呼吸

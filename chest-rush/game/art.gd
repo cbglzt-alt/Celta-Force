@@ -127,8 +127,9 @@ const DECOR := {
 }
 
 ## 装饰精灵的 cell 大小（树/灌木是条带，岩石是单帧）
+## tiny-swords 树木条带 192px/帧；灌木 128px/帧；岩石 64px 单帧
 const DECOR_CELL := {
-	"tree1": 256, "tree2": 256, "tree3": 256, "tree4": 256,
+	"tree1": 192, "tree2": 192, "tree3": 192, "tree4": 192,
 	"bush1": 128, "bush2": 128, "bush3": 128,
 	"rock1": 64, "rock2": 64, "rock3": 64, "rock4": 64,
 }
