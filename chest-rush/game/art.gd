@@ -181,14 +181,19 @@ const QUEST_PICKUP := TS_BASE + "Terrain/Resources/Gold/Gold Resource/Gold_Resou
 ## 撤离点标记
 const EXIT_SPRITE := TS_BASE + "Buildings/Blue Buildings/Tower.png"
 
-## UI 元素
-const UI_DIR := TS_BASE + "UI Elements/UI Elements/"
-const UI_SMALLBAR_BASE := UI_DIR + "Bars/SmallBar_Base.png"
-const UI_SMALLBAR_FILL := UI_DIR + "Bars/SmallBar_Fill.png"
-const UI_BUTTON_BLUE := UI_DIR + "Buttons/BigBlueButton_Regular.png"
-const UI_BUTTON_RED := UI_DIR + "Buttons/BigRedButton_Regular.png"
-const UI_BANNER := UI_DIR + "Banners/Banner.png"
-const UI_WOOD_TABLE := UI_DIR + "Wood Table/WoodTable.png"
+## UI 元素（Update 010 系列，9-slice/3-slice 可拉伸）
+const UI010_DIR := TS_UPD + "UI/"
+const UI_PANEL_9 := UI010_DIR + "Banners/Carved_9Slides.png"       # 192×192 九宫格面板
+const UI_BANNER_H := UI010_DIR + "Banners/Banner_Horizontal.png"   # 192×192 横幅
+const UI_BTN_BLUE_9 := UI010_DIR + "Buttons/Button_Blue_9Slides.png"
+const UI_BTN_RED_9 := UI010_DIR + "Buttons/Button_Red_9Slides.png"
+const UI_BTN_HOVER_9 := UI010_DIR + "Buttons/Button_Hover_9Slides.png"
+const UI_BTN_DISABLE_9 := UI010_DIR + "Buttons/Button_Disable_9Slides.png"
+const UI_RIBBON_BLUE := UI010_DIR + "Ribbons/Ribbon_Blue_3Slides.png"     # 192×64 三宫格
+const UI_RIBBON_RED := UI010_DIR + "Ribbons/Ribbon_Red_3Slides.png"
+const UI_RIBBON_YELLOW := UI010_DIR + "Ribbons/Ribbon_Yellow_3Slides.png"
+## 技能图标（64×64）
+const UI_ICONS_DIR := UI010_DIR + "Icons/"
 
 ## 死亡精灵（通用倒地）
 const DEAD_SPRITE := TS_UPD + "Factions/Knights/Troops/Dead/Dead.png"

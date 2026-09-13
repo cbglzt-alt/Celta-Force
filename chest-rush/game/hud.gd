@@ -184,7 +184,7 @@ func _restart() -> void:
 
 func _build_ui() -> void:
 	var s: float = _ui_scale
-	# 左上：关卡名 / HP 数值 / 金币 / 任务（血条在主角头顶）
+	# 左上：关卡名 / HP 数值 / 金币 / 任务
 	var tl := VBoxContainer.new()
 	tl.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	tl.position = Vector2(14 * s, 10 * s)
@@ -209,34 +209,36 @@ func _build_ui() -> void:
 	_time_label = _mk_label(tr, "", 16)
 	_vision_label = _mk_label(tr, "", 14)
 
-	# ---- 左下：技能栏（3 只鬼槽位，带边框圆角面板）----
+	# ---- 左下：技能栏（Carved_9Slides 面板 + 图标 + 文字）----
 	var skill_panel := PanelContainer.new()
-	skill_panel.add_theme_stylebox_override("panel", _mk_style())
+	skill_panel.add_theme_stylebox_override("panel", _mk_tex_style(Art.UI_PANEL_9, 64))
 	skill_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	skill_panel.position = Vector2(8 * s, -54 * s)
+	skill_panel.position = Vector2(8 * s, -60 * s)
 	skill_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(skill_panel)
 	var ghosts := HBoxContainer.new()
-	ghosts.add_theme_constant_override("separation", int(16 * s))
-	ghosts.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	ghosts.add_theme_constant_override("separation", int(8 * s))
 	skill_panel.add_child(ghosts)
+	var icon_keys := ["Regular_01.png", "Regular_02.png", "Regular_03.png"]
 	for i in 3:
-		var slot := PanelContainer.new()
-		slot.add_theme_stylebox_override("panel", _mk_slot_style())
-		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var slot := HBoxContainer.new()
+		slot.add_theme_constant_override("separation", int(4 * s))
 		ghosts.add_child(slot)
-		var l := _mk_label(slot, "", 16)
+		var icon := TextureRect.new()
+		icon.texture = load(Art.UI_ICONS_DIR + icon_keys[i])
+		icon.custom_minimum_size = Vector2(24 * s, 24 * s)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.expand_mode = TextureRect.EXPAND_KEEP_SIZE
+		slot.add_child(icon)
+		var l := _mk_label(slot, "", 15)
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		l.custom_minimum_size = Vector2(90 * s, 30 * s)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_ghost_labels.append(l)
 
-	# ---- 右下：强化栏（3 个升级，带边框圆角面板）----
+	# ---- 右下：强化栏（Carved_9Slides 面板 + 3 个升级项）----
 	var up_panel := PanelContainer.new()
-	up_panel.add_theme_stylebox_override("panel", _mk_style())
+	up_panel.add_theme_stylebox_override("panel", _mk_tex_style(Art.UI_PANEL_9, 64))
 	up_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	up_panel.position = Vector2(-268 * s, -86 * s)
-	up_panel.size = Vector2(260 * s, 78 * s)
+	up_panel.position = Vector2(-210 * s, -90 * s)
 	up_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(up_panel)
 	var up_vb := VBoxContainer.new()
@@ -265,7 +267,7 @@ func _build_ui() -> void:
 	_banner.add_theme_constant_override("outline_size", int(6 * s))
 	_banner.modulate.a = 0.0
 
-	# 全屏大字警告：用满屏 CenterContainer，避免锚点 Label 尺寸为 0 画不出来
+	# 全屏大字警告
 	_alert_root = Control.new()
 	_alert_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_alert_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -285,29 +287,40 @@ func _build_ui() -> void:
 
 	_build_result_panel()
 
+	_build_result_panel()
+
 
 func _build_result_panel() -> void:
 	_result_panel = ColorRect.new()
-	_result_panel.color = Color(0, 0, 0, 0.72)
+	_result_panel.color = Color(0, 0, 0, 0.78)
 	_result_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_result_panel.visible = false
 	add_child(_result_panel)
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_result_panel.add_child(center)
+	# 用 Banner_Horizontal 做面板背景
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _mk_tex_style(Art.UI_BANNER_H, 64))
+	panel.custom_minimum_size = Vector2(480 * _ui_scale, 320 * _ui_scale)
+	center.add_child(panel)
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 18)
-	center.add_child(vb)
+	vb.add_theme_constant_override("separation", int(16 * _ui_scale))
+	panel.add_child(vb)
 	_result_title = _mk_label(vb, "", 44)
 	_result_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_result_stats = _mk_label(vb, "", 20)
 	_result_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var hint := _mk_label(vb, "按 R 重新开始", 18)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# 用 Button_Blue_9Slides 做按钮背景
 	var btn := Button.new()
 	btn.text = "重新开始 (R)"
 	btn.add_theme_font_override("font", _font)
 	btn.add_theme_font_size_override("font_size", maxi(12, int(round(20 * _ui_scale))))
+	btn.add_theme_stylebox_override("normal", _mk_tex_style(Art.UI_BTN_BLUE_9, 64))
+	btn.add_theme_stylebox_override("hover", _mk_tex_style(Art.UI_BTN_HOVER_9, 64))
+	btn.add_theme_stylebox_override("pressed", _mk_tex_style(Art.UI_BTN_HOVER_9, 64))
 	btn.pressed.connect(_restart)
 	vb.add_child(btn)
 	_result_button = btn
@@ -337,24 +350,13 @@ func _mk_label(parent: Node, text: String, size: int) -> Label:
 	return l
 
 
-## 面板背景样式：深色半透明 + 浅色边框 + 圆角
-func _mk_style() -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.10, 0.13, 0.20, 0.88)
-	sb.border_color = Color(0.30, 0.36, 0.50, 0.80)
-	sb.set_border_width_all(maxi(1, int(round(2 * _ui_scale))))
-	sb.set_corner_radius_all(maxi(2, int(round(4 * _ui_scale))))
-	var pad := maxi(4, int(round(8 * _ui_scale)))
-	sb.set_content_margin_all(pad)
-	return sb
-
-
-## 技能槽框样式：更暗 + 细边框
-func _mk_slot_style() -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.08, 0.14, 0.70)
-	sb.border_color = Color(0.25, 0.30, 0.42, 0.70)
-	sb.set_border_width_all(maxi(1, int(round(1 * _ui_scale))))
-	sb.set_corner_radius_all(maxi(2, int(round(3 * _ui_scale))))
-	sb.set_content_margin_all(maxi(2, int(round(4 * _ui_scale))))
+## 9-slice 面板样式：从 tiny-swords UI 纹理创建可拉伸面板
+func _mk_tex_style(tex_path: String, border: int) -> StyleBoxTexture:
+	var sb := StyleBoxTexture.new()
+	sb.texture = load(tex_path)
+	sb.set_texture_margin(SIDE_LEFT, border)
+	sb.set_texture_margin(SIDE_RIGHT, border)
+	sb.set_texture_margin(SIDE_TOP, border)
+	sb.set_texture_margin(SIDE_BOTTOM, border)
+	sb.set_expand_margin_all(maxi(2, int(round(4 * _ui_scale))))
 	return sb
