@@ -266,28 +266,30 @@ func _chase(delta: float) -> void:
 	velocity = dir * speed
 
 
-## 驻足预告：门框浮现 + 危险房间（正方形）用框选脉冲标出（走位窗）
+## 驻足预告：房屋从地面浮现 + 危险房间（正方形）用框选脉冲标出（走位窗）
 func _start_telegraph() -> void:
 	_state = State.TELEGRAPH
 	_state_t = telegraph_time
 	var dir := Vector2.DOWN
 	if _player and is_instance_valid(_player):
 		dir = (_player.global_position - global_position).normalized()
-	# 门框：出现在敲门鬼面前较近处；整体门比例，框线尽量细
+	# 召唤房屋：Purple House1（128×192，scale 0.5 = 64×96px）
 	_door = Node2D.new()
-	_door.position = dir * 22.0
-	var frame := Polygon2D.new()
-	frame.polygon = PackedVector2Array([Vector2(-16, -24), Vector2(16, -24), Vector2(16, 24), Vector2(-16, 24)])
-	frame.color = Color(0.5, 0.3, 0.7, 0.9)
-	_door.add_child(frame)
-	var inner := Polygon2D.new()
-	# 内外差 2px → 细描边（左右/顶）
-	inner.polygon = PackedVector2Array([Vector2(-14, -22), Vector2(14, -22), Vector2(14, 24), Vector2(-14, 24)])
-	inner.color = Color(0.1, 0.05, 0.15, 1.0)
-	_door.add_child(inner)
-	_door.modulate.a = 0.0
-	_fx.add_child(_door)
-	_door.create_tween().tween_property(_door, "modulate:a", 1.0, 0.4)
+	_door.position = dir * 30.0
+	var house_sprite := Sprite2D.new()
+	house_sprite.texture = load(Art.TS_BASE + "Buildings/Purple Buildings/House1.png")
+	house_sprite.scale = Vector2(0.5, 0.0)  # 起始高度为 0（从地面长出）
+	house_sprite.offset = Vector2(0, -32)  # 底部对齐地面
+	house_sprite.z_index = 5
+	house_sprite.modulate.a = 0.0
+	_door.add_child(house_sprite)
+	_fx_host().add_child(_door)
+	_door.global_position = global_position + dir * 30.0
+	# 从地面浮现：高度从0到满 + 透明度从0到1
+	var tw := _door.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(house_sprite, "scale:y", 0.5, 0.8).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(house_sprite, "modulate:a", 1.0, 0.5)
 	# 危险区 = 敲门鬼所在房间的正方形（取短边），square_up_down 框选脉冲标出
 	_danger_rect = _level.room_square(_level.world_to_tile(global_position), 8)
 	_mark_danger_zone()
@@ -431,10 +433,19 @@ func _burst() -> void:
 	_state_t = skill_duration
 	_clear_danger_marks()
 	_flash_text("开门！", Color("#f87171"))
+	# 房屋不消失：变为永久地图元素，加底部碰撞
 	if _door:
-		_door.create_tween().tween_property(_door, "modulate:a", 0.0, 0.4)
-		_door.create_tween().tween_callback(_door.queue_free).set_delay(0.4)
-		_door = null
+		var body := StaticBody2D.new()
+		body.collision_layer = 4
+		body.collision_mask = 0
+		var cs := CollisionShape2D.new()
+		var shape := RectangleShape2D.new()
+		shape.size = Vector2(36, 14)
+		cs.shape = shape
+		cs.position = Vector2(0, 14)
+		body.add_child(cs)
+		_door.add_child(body)
+		_door = null  # 解除引用，节点留在世界
 
 	var rect := Rect2(
 		Vector2(_danger_rect.position) * _level.TILE,
@@ -498,14 +509,8 @@ func _interrupt() -> void:
 	_cool_t = skill_cooldown
 	_clear_danger_marks()
 	_clear_spikes()
-	if _door:
-		# 门碎裂下沉
-		var tw := _door.create_tween()
-		tw.set_parallel(true)
-		tw.tween_property(_door, "modulate:a", 0.0, 0.3)
-		tw.tween_property(_door, "scale:y", 0.2, 0.3)
-		tw.chain().tween_callback(_door.queue_free)
-		_door = null
+	# 房屋已召唤不消失（打断只清危险区/地刺，房屋永久留存）
+	_door = null
 	_flash_text("打断！", Color("#4ade80"))
 
 
@@ -544,12 +549,10 @@ func _die() -> void:
 	set_physics_process(false)
 	set_deferred("monitoring", false)
 	$CollisionShape2D.set_deferred("disabled", true)
-	# 清理技能特效
+	# 清理技能特效（房屋不清理——永久留存）
 	_clear_danger_marks()
 	_clear_spikes()
-	if _door:
-		_door.queue_free()
-		_door = null
+	_door = null  # 解除引用，房屋节点留在世界
 	var bg := get_node_or_null("HpBarBg")
 	if bg:
 		bg.visible = false
