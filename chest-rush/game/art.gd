@@ -27,10 +27,10 @@ const TILE_ATLASES := {
 
 ## 装饰主题：每关用不同装饰组合
 const DECOR_THEMES := {
-	"grassland": ["rock1", "rock2", "bush1", "bush2", "tree1", "tree2"],
-	"forest": ["tree1", "tree2", "tree3", "tree4", "bush1", "bush2", "bush3"],
+	"grassland": ["rock1", "rock2", "bush1", "bush2", "tree", "tree"],
+	"forest": ["tree", "tree", "tree", "bush1", "bush2", "bush3"],
 	"ruins": ["rock1", "rock2", "rock3", "rock4"],
-	"deep": ["bush3", "rock3", "rock4", "tree4"],
+	"deep": ["bush3", "rock3", "rock4", "tree"],
 }
 
 ## Tilemap_Flat 中草地瓦片的网格坐标（列 0-3），用于地面随机变体
@@ -130,10 +130,7 @@ const FRAMES := {
 # ---- 装饰 / 道具 / 特效 / UI 路径 ----
 
 const DECOR := {
-	"tree1": TS_BASE + "Terrain/Resources/Wood/Trees/Tree1.png",
-	"tree2": TS_BASE + "Terrain/Resources/Wood/Trees/Tree2.png",
-	"tree3": TS_BASE + "Terrain/Resources/Wood/Trees/Tree3.png",
-	"tree4": TS_BASE + "Terrain/Resources/Wood/Trees/Tree4.png",
+	"tree": TS_UPD + "Resources/Trees/Tree.png",   # 768×576 = 4×3 grid, row0 = 4帧摇曳动画
 	"bush1": TS_BASE + "Terrain/Decorations/Bushes/Bushe1.png",
 	"bush2": TS_BASE + "Terrain/Decorations/Bushes/Bushe2.png",
 	"bush3": TS_BASE + "Terrain/Decorations/Bushes/Bushe3.png",
@@ -143,13 +140,17 @@ const DECOR := {
 	"rock4": TS_BASE + "Terrain/Decorations/Rocks/Rock4.png",
 }
 
-## 装饰精灵的 cell 大小（树/灌木是条带，岩石是单帧）
-## tiny-swords 树木条带 192px/帧；灌木 128px/帧；岩石 64px 单帧
+## 装饰精灵的 cell 大小
 const DECOR_CELL := {
-	"tree1": 192, "tree2": 192, "tree3": 192, "tree4": 192,
+	"tree": 192,
 	"bush1": 128, "bush2": 128, "bush3": 128,
 	"rock1": 64, "rock2": 64, "rock3": 64, "rock4": 64,
 }
+
+## 网格型精灵的动画帧坐标（col, row 列表）
+const TREE_FRAMES: Array[Vector2i] = [
+	Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0),
+]
 
 ## 火焰特效（域武器光环）
 const FIRE_SPRITE := TS_BASE + "Particle FX/Fire_01.png"
@@ -212,6 +213,17 @@ static func slice_atlas(atlas_path: String, grid_x: int, grid_y: int, cell: int)
 	var img := tex.get_image()
 	var sub := Image.create(cell, cell, false, Image.FORMAT_RGBA8)
 	sub.blit_rect(img, Rect2i(grid_x * cell, grid_y * cell, cell, cell), Vector2i.ZERO)
+	return ImageTexture.create_from_image(sub)
+
+
+## 从网格型精灵图中切第 (col, row) 帧为 Texture2D
+static func slice_grid(path: String, cell: int, col: int, row: int) -> Texture2D:
+	var tex: Texture2D = load(path)
+	if tex == null:
+		return null
+	var img := tex.get_image()
+	var sub := Image.create(cell, cell, false, Image.FORMAT_RGBA8)
+	sub.blit_rect(img, Rect2i(col * cell, row * cell, cell, cell), Vector2i.ZERO)
 	return ImageTexture.create_from_image(sub)
 
 

@@ -261,42 +261,57 @@ func _build_decor() -> void:
 
 
 ## 用 tiny-swords 装饰精灵放置地面/墙面装饰
-## 树/灌木用静态首帧 + 旋转/缩放 tween 模拟摇曳（帧间偏移会导致"平移"bug）
+## 树用 4 帧网格动画（Tree.png row0），灌木用缩放呼吸，岩石静态
 func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> void:
 	var path: String = Art.DECOR[key]
 	var cell: int = Art.DECOR_CELL.get(key, 64)
 	var tex: Texture2D = load(path)
 	if tex == null:
 		return
-	# 切第一帧：宽度=cell，高度=图片实际高度（避免 cell×cell 切到下一帧）
-	var sprite_tex: Texture2D = tex
-	if cell > 0 and tex.get_width() > cell:
-		var src_img := tex.get_image()
-		var img_h := src_img.get_height()
-		var sub := Image.create(cell, img_h, false, Image.FORMAT_RGBA8)
-		sub.blit_rect(src_img, Rect2i(0, 0, cell, img_h), Vector2i.ZERO)
-		sprite_tex = ImageTexture.create_from_image(sub)
-	var s := Sprite2D.new()
-	s.texture = sprite_tex
-	# 树大、灌木中、岩石小（岩石缩小以与可攻击障碍区分）
-	var is_tree := cell >= 192
-	var is_bush := cell >= 128 and cell < 192
-	var sc := 0.16 if is_tree else (0.30 if is_bush else 0.30)
-	s.scale = Vector2(sc, sc)
-	s.z_index = 3 if is_tree else -5
-	add_child(s)
-	s.global_position = pos
-	# 摇曳 tween：树用旋转，灌木用缩放呼吸
+	var is_tree := key == "tree"
+	var is_bush := cell >= 128 and not is_tree
+	var sc := 0.20 if is_tree else (0.30 if is_bush else 0.30)
+
 	if is_tree:
-		var sway := rng.randf_range(0.015, 0.03)
-		var dur := rng.randf_range(2.5, 4.0)
-		var tw := s.create_tween().set_loops()
-		tw.tween_property(s, "rotation", sway, dur).set_trans(Tween.TRANS_SINE)
-		tw.tween_property(s, "rotation", -sway, dur).set_trans(Tween.TRANS_SINE)
-	elif is_bush:
-		var tw2 := s.create_tween().set_loops()
-		tw2.tween_property(s, "scale", Vector2(sc * 1.08, sc * 1.08), 1.5).set_trans(Tween.TRANS_SINE)
-		tw2.tween_property(s, "scale", Vector2(sc, sc), 1.5).set_trans(Tween.TRANS_SINE)
+		# 树：用 Tree.png 的 4 帧网格动画（row0 摇曳帧）
+		var sf := SpriteFrames.new()
+		sf.add_animation("sway")
+		sf.set_animation_speed("sway", 3.0)  # 3fps 慢摇曳
+		sf.set_animation_loop("sway", true)
+		for g in Art.TREE_FRAMES:
+			var frame_tex: Texture2D = Art.slice_grid(path, cell, g.x, g.y)
+			if frame_tex:
+				sf.add_frame("sway", frame_tex)
+		var s := AnimatedSprite2D.new()
+		s.sprite_frames = sf
+		s.scale = Vector2(sc, sc)
+		s.z_index = 3  # 渲染在墙体之上
+		add_child(s)
+		s.global_position = pos
+		s.play("sway")
+		# 随机起始帧 + 偏移速度，避免所有树同步摇摆
+		s.frame = rng.randi() % Art.TREE_FRAMES.size()
+		s.sprite_frames.set_animation_speed("sway", rng.randf_range(2.5, 4.0))
+	else:
+		# 灌木/岩石：静态首帧
+		var sprite_tex: Texture2D = tex
+		if cell > 0 and tex.get_width() > cell:
+			var src_img := tex.get_image()
+			var img_h := src_img.get_height()
+			var sub := Image.create(cell, img_h, false, Image.FORMAT_RGBA8)
+			sub.blit_rect(src_img, Rect2i(0, 0, cell, img_h), Vector2i.ZERO)
+			sprite_tex = ImageTexture.create_from_image(sub)
+		var s := Sprite2D.new()
+		s.texture = sprite_tex
+		s.scale = Vector2(sc, sc)
+		s.z_index = -5
+		add_child(s)
+		s.global_position = pos
+		# 灌木用缩放呼吸
+		if is_bush:
+			var tw := s.create_tween().set_loops()
+			tw.tween_property(s, "scale", Vector2(sc * 1.08, sc * 1.08), 1.5).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(s, "scale", Vector2(sc, sc), 1.5).set_trans(Tween.TRANS_SINE)
 
 
 ## 地板：用关卡专属色板瓦片平铺
