@@ -71,9 +71,12 @@ func _ready() -> void:
 	extract_countdown = data.extract_countdown
 	spawn_radius = data.spawn_radius
 	_knocker_next_round = data.knocker_first_round
+	# 设置氛围色调（每关不同）
+	$Atmosphere.color = data.atmosphere
 	# 注入地图数据并构建（程序化 BSP 生成）
 	level = $World/LevelMap
 	level.setup_level(data)
+	level.setup_theme(data.tile_theme, data.decor_theme)
 	var gen_map := MapGenerator.generate(data.seed, data.chest_count, data.obstacle_count, data.spawn_count)
 	level.setup_level_data(gen_map)
 	level._build()

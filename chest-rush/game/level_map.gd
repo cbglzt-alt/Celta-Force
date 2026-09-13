@@ -12,6 +12,8 @@ const DestructibleScene := preload("res://game/destructible.tscn")
 
 ## 当前关卡的 ASCII 地图（由 game.gd 设置）
 var map_data: Array[String] = []
+var tile_theme: String = "grass"
+var decor_theme: String = "grassland"
 
 var width: int
 var height: int
@@ -37,6 +39,11 @@ func setup_level(_data) -> void:
 
 func setup_level_data(map: Array[String]) -> void:
 	map_data = map.duplicate()
+
+
+func setup_theme(tt: String, dt: String) -> void:
+	tile_theme = tt
+	decor_theme = dt
 
 
 func world_to_tile(p: Vector2) -> Vector2i:
@@ -224,15 +231,13 @@ func _on_destructible_destroyed(d) -> void:
 	destructible_destroyed.emit(d)
 
 
-## 装饰层：地面树木/灌木/岩石。纯视觉，不占格、不碰撞、不影响寻路/视野。
+## 装饰层：地面树木/灌木/岩石（按关卡主题选择）。纯视觉，不占格、不碰撞。
 func _build_decor() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260728
-	var decor_keys: Array[String] = [
-		"tree1", "tree2", "tree3", "tree4",
-		"bush1", "bush2", "bush3",
-		"rock1", "rock2", "rock3", "rock4",
-	]
+	var decor_keys: Array = Art.DECOR_THEMES.get(decor_theme, ["rock1", "rock2"])
+	if decor_keys.is_empty():
+		decor_keys = ["rock1"]
 	for y in height:
 		for x in width:
 			var t := Vector2i(x, y)
@@ -294,10 +299,11 @@ func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> voi
 		tw2.tween_property(s, "scale", Vector2(sc, sc), 1.5).set_trans(Tween.TRANS_SINE)
 
 
-## 地板：用 tiny-swords 草地瓦片平铺（从 Tilemap_Flat 图集取草地变体）
+## 地板：用关卡专属色板瓦片平铺
 func _build_floor() -> void:
+	var atlas_path: String = Art.TILE_ATLASES.get(tile_theme, Art.FLAT_ATLAS)
 	var f := FloorBG.new()
-	f.setup(width, height, TILE, load(Art.FLAT_ATLAS))
+	f.setup(width, height, TILE, load(atlas_path))
 	add_child(f)
 
 
@@ -317,10 +323,13 @@ class FloorBG extends Node2D:
 		atlas = _atlas
 		z_index = -10
 		_rng.seed = 20260728
-		# 预切草地变体（16 种 → 随机选用，增加地面丰富度）
+		# 从图集直接切草地变体（兼容不同色板图集）
 		if atlas != null:
+			var img := atlas.get_image()
 			for g in Art.GRASS_TILES:
-				_floor_tiles.append(Art.slice_atlas(Art.FLAT_ATLAS, g.x, g.y, Art.SRC_TILE))
+				var sub := Image.create(Art.SRC_TILE, Art.SRC_TILE, false, Image.FORMAT_RGBA8)
+				sub.blit_rect(img, Rect2i(g.x * Art.SRC_TILE, g.y * Art.SRC_TILE, Art.SRC_TILE, Art.SRC_TILE), Vector2i.ZERO)
+				_floor_tiles.append(ImageTexture.create_from_image(sub))
 
 	func _draw() -> void:
 		var cell := Vector2(ts, ts)

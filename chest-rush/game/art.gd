@@ -16,6 +16,22 @@ const SRC_TILE := 64
 const FLAT_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Flat.png"       # 640×256 = 10×4 草地/沙土
 const ELEV_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Elevation.png"   # 256×512 = 4×8 悬崖/墙体
 
+## 每关不同地形色板（Tilemap_color1-5.png，各 576×384 = 9×6 格 64px）
+const TILE_ATLASES := {
+	"grass": TS_BASE + "Terrain/Tileset/Tilemap_color1.png",   # 亮绿草地
+	"forest": TS_BASE + "Terrain/Tileset/Tilemap_color3.png",  # 深绿密林
+	"ruins": TS_BASE + "Terrain/Tileset/Tilemap_color4.png",   # 枯黄废墟
+	"deep": TS_BASE + "Terrain/Tileset/Tilemap_color5.png",    # 青蓝鬼域
+}
+
+## 装饰主题：每关用不同装饰组合
+const DECOR_THEMES := {
+	"grassland": ["rock1", "rock2", "bush1", "bush2", "tree1", "tree2"],
+	"forest": ["tree1", "tree2", "tree3", "tree4", "bush1", "bush2", "bush3"],
+	"ruins": ["rock1", "rock2", "rock3", "rock4"],
+	"deep": ["bush3", "rock3", "rock4", "tree4"],
+}
+
 ## Tilemap_Flat 中草地瓦片的网格坐标（列 0-3），用于地面随机变体
 const GRASS_TILES: Array[Vector2i] = [
 	Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0),
