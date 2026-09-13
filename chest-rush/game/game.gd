@@ -43,6 +43,7 @@ var extraction_active := false
 var over := false
 
 var up_levels := {"attack": 0, "speed": 0, "hp": 0}
+var _targeted_obstacle: Node2D = null  # 点击集火目标
 
 ## 敲门鬼：最早第 3 波；击杀/刷出后按间隔延后，避免刚打完又立刻出
 var _knocker_next_round := 3
@@ -132,6 +133,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("restart"):
 			_restart()
 		return
+	# 点击集火障碍物
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_try_target_obstacle()
+		return
 	if event.is_action_pressed("use_vision"):
 		_use_vision()
 	elif event.is_action_pressed("buy_attack"):
@@ -140,6 +145,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		_buy("speed")
 	elif event.is_action_pressed("buy_hp"):
 		_buy("hp")
+
+
+## 点击世界中的障碍物集火
+func _try_target_obstacle() -> void:
+	var mouse_pos := get_global_mouse_position()
+	var best: Node2D = null
+	var best_d := 48.0  # 点击容差
+	for d in get_tree().get_nodes_in_group("destructibles"):
+		if d.kind != Destructible.Kind.OBSTACLE:
+			continue
+		var dist := mouse_pos.distance_to(d.global_position)
+		if dist < best_d:
+			best_d = dist
+			best = d
+	_targeted_obstacle = best
+	if best != null:
+		hud.message("集火障碍物！")
+		# 通知刀鬼集火
+		for w in player.weapons:
+			w.target_obstacle = best
 
 
 func _restart() -> void:
@@ -306,8 +331,7 @@ func _on_knocker_died(pos: Vector2, gold_amt: int) -> void:
 
 func _on_enemy_died(pos: Vector2, gold_amt: int) -> void:
 	kills += 1
-	# 物理 flush 内（弹体命中→敌死→掉落）不能新建碰撞体，延迟到物理步外
-	call_deferred("_spawn_pickup", Pickup.Kind.GOLD, gold_amt, pos)
+	call_deferred("_spawn_pickup", Pickup.Kind.GOLD, gold_amt, pos, "monster")
 
 
 # ---------- 破坏物掉落与拾取 ----------
@@ -319,14 +343,13 @@ func _on_destructible_destroyed(d) -> void:
 
 func _drop_from_destructible(pos: Vector2, kind: int, has_quest: bool) -> void:
 	if kind == Destructible.Kind.CHEST:
-		_spawn_pickup(Pickup.Kind.GOLD, _wave_scaled_gold(12, 20), pos + Vector2(-10, 0))
+		_spawn_pickup(Pickup.Kind.GOLD, _wave_scaled_gold(12, 20), pos + Vector2(-10, 0), "chest")
 		if has_quest:
-			_spawn_pickup(Pickup.Kind.QUEST, 1, pos + Vector2(12, 0))
+			_spawn_pickup(Pickup.Kind.QUEST, 1, pos + Vector2(12, 0), "")
 		elif randf() < 0.18:
-			_spawn_pickup(Pickup.Kind.VISION, 1, pos + Vector2(12, 0))
+			_spawn_pickup(Pickup.Kind.VISION, 1, pos + Vector2(12, 0), "")
 	else:
-		# 障碍/小宝箱：随波缓增，底数压低防滚雪球
-		_spawn_pickup(Pickup.Kind.GOLD, _wave_scaled_gold(2, 4), pos)
+		_spawn_pickup(Pickup.Kind.GOLD, _wave_scaled_gold(2, 4), pos, "obstacle")
 
 
 ## 破坏物金币随波次放大（增速用 loot_gold_growth，慢于怪血）
@@ -338,11 +361,11 @@ func _wave_scaled_gold(base_lo: int, base_hi: int) -> int:
 	return randi_range(lo, hi)
 
 
-func _spawn_pickup(kind: Pickup.Kind, amount: int, pos: Vector2) -> void:
+func _spawn_pickup(kind: Pickup.Kind, amount: int, pos: Vector2, gold_source := "") -> void:
 	var p = PickupScene.instantiate()
 	_world.add_child(p)
 	p.global_position = pos
-	p.setup(kind, amount, fog)
+	p.setup(kind, amount, fog, gold_source)
 
 
 func collect(p: Node2D) -> void:

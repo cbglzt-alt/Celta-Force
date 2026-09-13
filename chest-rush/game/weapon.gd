@@ -30,6 +30,7 @@ enum State { FOLLOW, APPROACH, ATTACK }
 var _state := State.FOLLOW
 var _idx := 0
 var _attack_anim_time := 0.0  # 攻击动画锁定（防止被 walk/idle 覆盖）
+var target_obstacle: Node2D = null  # 点击集火目标（由 game.gd 设置）
 const FOLLOW_SPEED := 5.0  # lerp 速度（拖尾延迟感）
 ## V 形阵型偏移（召唤物在玩家身后）
 const FORMATIONS: Array[Vector2] = [
@@ -179,14 +180,24 @@ func _physics_process(delta: float) -> void:
 		return
 	_cool -= delta
 	_attack_anim_time -= delta
-	# 召唤物状态机：跟随 → 接敌 → 攻击
+	# 召唤物状态机：跟随 → 接敌 → 攻击（优先敌人；无敌人时集火障碍）
 	var target := _nearest_enemy(_eff_range() * 1.5)
-	if target == null:
-		_state = State.FOLLOW
-	elif global_position.distance_to(target.global_position) <= _eff_range():
+	# 清理失效的集火目标
+	if target_obstacle != null and not is_instance_valid(target_obstacle):
+		target_obstacle = null
+	var has_obstacle := target_obstacle != null and data.pattern == WeaponData.Pattern.SLASH
+
+	if target != null:
+		if global_position.distance_to(target.global_position) <= _eff_range():
+			_state = State.ATTACK
+		else:
+			_state = State.APPROACH
+	elif has_obstacle and global_position.distance_to(target_obstacle.global_position) <= _eff_range():
 		_state = State.ATTACK
-	else:
+	elif has_obstacle:
 		_state = State.APPROACH
+	else:
+		_state = State.FOLLOW
 
 	# 移动逻辑
 	match _state:
@@ -194,15 +205,17 @@ func _physics_process(delta: float) -> void:
 			_move_to(_player.global_position + FORMATIONS[_idx], delta)
 			_play_anim("walk" if global_position.distance_to(_player.global_position + FORMATIONS[_idx]) > 5.0 else "idle")
 		State.APPROACH:
-			if target != null:
-				_move_to(target.global_position, delta)
+			var approach_target: Node2D = target if target != null else target_obstacle
+			if approach_target != null:
+				_move_to(approach_target.global_position, delta)
 				_play_anim("walk")
 		State.ATTACK:
 			velocity = Vector2.ZERO  # 攻击时停止
-			if target != null and _cool <= 0.0:
+			var attack_target: Node2D = target if target != null else target_obstacle
+			if attack_target != null and _cool <= 0.0:
 				_cool = data.cooldown
 				_play_anim("attack")
-				_fire_at(target)
+				_fire_at(attack_target)
 			elif _cool > 0.0:
 				_play_anim("idle")
 
@@ -247,13 +260,12 @@ func _play_anim(anim_name: String) -> void:
 	s.play(anim_name)
 
 
-## 发射攻击（按 pattern 分派）
+## 发射攻击（按 pattern 分派，不再自动找障碍物——需点击集火）
 func _fire_at(target: Node2D) -> void:
-	_attack_anim_time = 0.4  # 锁定攻击动画 0.4s
+	_attack_anim_time = 0.4
 	match data.pattern:
 		WeaponData.Pattern.SLASH:
-			var destruct: Node2D = _nearest_destructible(_eff_range())
-			_fire_slash(target if target != null else destruct)
+			_fire_slash(target)
 		WeaponData.Pattern.BOLT:
 			if target != null:
 				_fire_bolt(target)
@@ -302,13 +314,11 @@ func _fire_slash(target: Node2D) -> void:
 		var to: Vector2 = e.global_position - src
 		if to.length() <= r and abs(to.angle_to(dir)) < 0.9 and not _blocked(e.global_position):
 			e.take_damage(_dmg(), src, data.color)
-	# 前方扇区内的障碍（血量制；宝箱免疫攻击、贴近读条，跳过）
-	for d in get_tree().get_nodes_in_group("destructibles"):
-		if d.kind == Destructible.Kind.CHEST:
-			continue
-		var to: Vector2 = d.global_position - src
-		if to.length() <= r and abs(to.angle_to(dir)) < 0.9 and not _blocked(d.global_position):
-			d.take_damage(_dmg(), src, data.color)
+	# 障碍物：只有集火目标被攻击（不自动打其他障碍）
+	if target_obstacle != null and is_instance_valid(target_obstacle) and target_obstacle.kind != Destructible.Kind.CHEST:
+		var to_d: Vector2 = target_obstacle.global_position - src
+		if to_d.length() <= r and abs(to_d.angle_to(dir)) < 0.9 and not _blocked(target_obstacle.global_position):
+			target_obstacle.take_damage(_dmg(), src, data.color)
 
 
 ## 扇形挥砍特效：半透明彩色扇区，闪现后快速淡出

@@ -18,29 +18,69 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 
 
-func setup(k: Kind, amt: int, fog_ref: Node2D) -> void:
+func setup(k: Kind, amt: int, fog_ref: Node2D, gold_source := "") -> void:
 	kind = k
 	amount = amt
 	fog = fog_ref
-	# 掉落物用 tiny-swords sprite：金币/工具/金矿
-	var tex_path := ""
+	_body.visible = false
+	var base_scale := 0.4
 	match kind:
 		Kind.GOLD:
-			tex_path = Art.GOLD_PICKUP
+			match gold_source:
+				"chest":
+					# 宝箱金币：Gold Stone 3 + 高光动画
+					var hl_tex := load(Art.GOLD_CHEST_HL)
+					if hl_tex and hl_tex.get_width() > 128:
+						# 动画条带 768×128 = 6帧
+						_make_anim_pickup(Art.GOLD_CHEST_HL, 128, base_scale)
+					else:
+						_make_static_pickup(Art.GOLD_CHEST_TEX, base_scale)
+				"monster":
+					# 怪物金币：G_Spawn 动画 896×128 = 7帧
+					_make_anim_pickup(Art.GOLD_MONSTER_TEX, 128, base_scale * 0.8)
+				"obstacle":
+					# 障碍金币：Gold Stone 2 或 1（静态，随机）
+					var obs_tex := Art.GOLD_OBSTACLE_TEX if randf() < 0.6 else Art.GOLD_OBSTACLE_TEX2
+					_make_static_pickup(obs_tex, base_scale)
+				_:
+					_make_static_pickup(Art.GOLD_CHEST_TEX, base_scale)
 		Kind.VISION:
-			tex_path = Art.VISION_PICKUP
+			_make_static_pickup(Art.VISION_PICKUP, base_scale)
 		Kind.QUEST:
-			tex_path = Art.QUEST_PICKUP
-	_body.visible = false
+			_make_static_pickup(Art.QUEST_PICKUP, base_scale)
+	# 呼吸缩放
+	var breath_sc := _visual.scale.x
+	var tw := create_tween().set_loops()
+	tw.tween_property(_visual, "scale", Vector2(breath_sc * 1.15, breath_sc * 1.15), 0.5).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_visual, "scale", Vector2(breath_sc * 0.85, breath_sc * 0.85), 0.5).set_trans(Tween.TRANS_SINE)
+
+
+func _make_static_pickup(tex_path: String, sc: float) -> void:
 	var s := Sprite2D.new()
 	s.texture = load(tex_path)
-	s.scale = Vector2(0.45, 0.45)  # 缩放到 ~32px
+	s.scale = Vector2(sc, sc)
 	add_child(s)
 	_visual = s
-	# 呼吸缩放（作用在 sprite 上）
-	var tw := create_tween().set_loops()
-	tw.tween_property(_visual, "scale", Vector2(0.55, 0.55), 0.5).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(_visual, "scale", Vector2(0.40, 0.40), 0.5).set_trans(Tween.TRANS_SINE)
+
+
+func _make_anim_pickup(strip_path: String, cell: int, sc: float) -> void:
+	var sf := SpriteFrames.new()
+	sf.add_animation("idle")
+	sf.set_animation_speed("idle", 8.0)
+	sf.set_animation_loop("idle", true)
+	var tex: Texture2D = load(strip_path)
+	if tex and tex.get_width() > cell:
+		var n := int(tex.get_width() / cell)
+		for i in n:
+			var ft := Art.slice_strip(strip_path, cell, i)
+			if ft:
+				sf.add_frame("idle", ft)
+	var s := AnimatedSprite2D.new()
+	s.sprite_frames = sf
+	s.scale = Vector2(sc, sc)
+	s.play("idle")
+	add_child(s)
+	_visual = s
 
 
 func _process(_delta: float) -> void:

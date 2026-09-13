@@ -8,10 +8,11 @@ signal destroyed(d)
 
 enum Kind { OBSTACLE, CHEST }
 
-## 宝箱/障碍精灵路径（tiny-swords）
-const CHEST_TEX := Art.CHEST_SPRITE        # Gold Mine（活跃）
-const CHEST_OPEN_TEX := Art.CHEST_OPEN_SPRITE  # Gold Mine（枯竭）
-const OBSTACLE_TEX := Art.OBSTACLE_SPRITE   # Barrel（木桶，与装饰岩石区分）
+## 宝箱/障碍精灵路径
+const CHEST_TEX := Art.CHEST_SPRITE         # GoldMine_Active（192×128）
+const CHEST_OPEN_TEX := Art.CHEST_OPEN_SPRITE  # GoldMine_Inactive
+## 障碍物用建筑（有 Destroyed 状态）
+
 
 @export var obstacle_hp := 90.0
 @export var chest_open_time := 3.5  # 贴近读条秒数
@@ -21,6 +22,7 @@ var kind: Kind
 var hp := 90.0
 var has_quest := false
 var tile := Vector2i.ZERO
+var _obstacle_idx := 0  # 障碍建筑变体索引
 
 var _open_progress := 0.0
 var _opening := false
@@ -48,17 +50,44 @@ func setup(k: Kind, t: Vector2i) -> void:
 	sf.set_animation_loop("idle", true)
 	if k == Kind.OBSTACLE:
 		hp = obstacle_hp
-		# 障碍用木桶：切第一帧 192px，缩放 0.25 = 48px
-		var barrel_tex: Texture2D = Art.slice_strip(OBSTACLE_TEX, Art.OBSTACLE_CELL, 0)
-		if barrel_tex:
-			sf.add_frame("idle", barrel_tex)
-		_sprite.scale = Vector2(0.25, 0.25)
-	else:
-		# 宝箱用 Gold Stone（128x128 金矿石），缩放 0.25 = 32px = 1 格，无悬空
-		var tex: Texture2D = load(CHEST_TEX)
+		# 障碍用建筑精灵（128×192 或 256×192），缩放 0.5 + 底部碰撞
+		_obstacle_idx = randi() % Art.OBSTACLE_BUILDINGS.size()
+		var building = Art.OBSTACLE_BUILDINGS[_obstacle_idx]
+		var tex: Texture2D = load(building.tex)
 		if tex:
 			sf.add_frame("idle", tex)
-		_sprite.scale = Vector2(0.25, 0.25)
+		_sprite.scale = Vector2(0.5, 0.5)
+		_sprite.offset = Vector2(0, -32)  # 底部对齐
+		_sprite.z_index = 1  # 渲染在玩家之上
+		# 加底部碰撞（与房屋一致）
+		var body := StaticBody2D.new()
+		body.collision_layer = 4
+		body.collision_mask = 0
+		var cs := CollisionShape2D.new()
+		var shape := RectangleShape2D.new()
+		shape.size = Vector2(36, 14)
+		cs.shape = shape
+		cs.position = Vector2(0, 14)
+		body.add_child(cs)
+		add_child(body)
+	else:
+		# 宝箱用 GoldMine（192×128），缩放 0.5 + 底部碰撞
+		var ctex: Texture2D = load(CHEST_TEX)
+		if ctex:
+			sf.add_frame("idle", ctex)
+		_sprite.scale = Vector2(0.5, 0.5)
+		_sprite.offset = Vector2(0, -16)  # 底部对齐
+		_sprite.z_index = 1
+		var body := StaticBody2D.new()
+		body.collision_layer = 4
+		body.collision_mask = 0
+		var cs := CollisionShape2D.new()
+		var shape := RectangleShape2D.new()
+		shape.size = Vector2(36, 14)
+		cs.shape = shape
+		cs.position = Vector2(0, 14)
+		body.add_child(cs)
+		add_child(body)
 	_sprite.sprite_frames = sf
 	_sprite.play("idle")
 	add_child(_sprite)
@@ -135,7 +164,7 @@ func _play_open() -> void:
 	_opened = true
 	set_process(false)
 	_clear_bar()
-	# 切换为打开状态精灵 + 弹跳 tween
+	# 切换为开启状态精灵 + 弹跳 tween
 	var open_tex: Texture2D = load(CHEST_OPEN_TEX)
 	if open_tex and _sprite.sprite_frames:
 		_sprite.sprite_frames.clear("idle")
@@ -166,13 +195,26 @@ func take_damage(n: float, _from_pos := Vector2.ZERO, color := Color(1, 1, 1)) -
 func _break_open() -> void:
 	_opened = true
 	set_process(false)
-	# 障碍被打烂：变暗 + 缩小塌陷 tween
+	# 障碍被打烂：切换为 Destroyed 精灵 + 变暗
+	var building = Art.OBSTACLE_BUILDINGS[_obstacle_idx]
+	var destroyed_tex: Texture2D = load(building.destroyed)
+	if destroyed_tex and _sprite.sprite_frames:
+		_sprite.sprite_frames.clear("idle")
+		_sprite.sprite_frames.add_frame("idle", destroyed_tex)
+		_sprite.play("idle")
 	destroyed.emit(self)
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(_sprite, "modulate", Color(0.5, 0.45, 0.5), 0.2)
-	tw.tween_property(_sprite, "scale", _sprite.scale * 0.6, 0.2)
+	tw.tween_property(_sprite, "scale", _sprite.scale * 0.8, 0.2)
 	await tw.finished
+	# 关闭碰撞（StaticBody2D 的碰撞）
+	for child in get_children():
+		if child is StaticBody2D:
+			for cs in child.get_children():
+				if cs is CollisionShape2D:
+					cs.set_deferred("disabled", true)
+	remove_from_group("destructibles")
 	$CollisionShape2D.set_deferred("disabled", true)
 	remove_from_group("destructibles")
 

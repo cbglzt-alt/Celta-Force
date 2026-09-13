@@ -179,10 +179,21 @@ const EXPLOSION_CELL := 192
 const ARROW_SPRITE := TS_BASE + "Units/Red Units/Archer/Arrow.png"
 
 ## 宝箱/障碍物
-const CHEST_SPRITE := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 1.png"
-const CHEST_OPEN_SPRITE := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 2.png"
-const OBSTACLE_SPRITE := TS_UPD + "Factions/Goblins/Troops/Barrel/Blue/Barrel_Blue.png"
-const OBSTACLE_CELL := 192  # Barrel_Blue is 768x768 = 4x4 grid of 192px
+const CHEST_SPRITE := TS_UPD + "Resources/Gold Mine/GoldMine_Active.png"        # 192×128
+const CHEST_OPEN_SPRITE := TS_UPD + "Resources/Gold Mine/GoldMine_Inactive.png"  # 开启后
+## 可破坏障碍物：建筑（带 Destroyed 状态）
+const OBSTACLE_BUILDINGS: Array = [
+	{"tex": TS_UPD + "Factions/Knights/Buildings/House/House_Blue.png", "destroyed": TS_UPD + "Factions/Knights/Buildings/House/House_Destroyed.png"},
+	{"tex": TS_UPD + "Factions/Knights/Buildings/House/House_Red.png", "destroyed": TS_UPD + "Factions/Knights/Buildings/House/House_Destroyed.png"},
+	{"tex": TS_UPD + "Factions/Goblins/Buildings/Wood_House/Goblin_House.png", "destroyed": TS_UPD + "Factions/Goblins/Buildings/Wood_House/Goblin_House_Destroyed.png"},
+	{"tex": TS_UPD + "Factions/Goblins/Buildings/Wood_Tower/Wood_Tower_Blue.png", "destroyed": TS_UPD + "Factions/Goblins/Buildings/Wood_Tower/Wood_Tower_Destroyed.png"},
+]
+## 金币拾取物：宝箱掉落用 Gold Stone 3，怪物掉落用 G_Spawn，障碍掉落用 Gold Stone 2/1
+const GOLD_CHEST_TEX := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 3.png"
+const GOLD_CHEST_HL := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 3_Highlight.png"  # 768×128 = 6帧
+const GOLD_MONSTER_TEX := TS_UPD + "Resources/Resources/G_Spawn.png"  # 896×128 = 7帧
+const GOLD_OBSTACLE_TEX := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 2.png"
+const GOLD_OBSTACLE_TEX2 := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 1.png"
 
 ## 拾取物
 const GOLD_PICKUP := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 1.png"
