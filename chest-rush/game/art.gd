@@ -27,10 +27,10 @@ const TILE_ATLASES := {
 
 ## 装饰主题：每关用不同装饰组合
 const DECOR_THEMES := {
-	"grassland": ["rock1", "rock2", "bush1", "bush2", "tree", "tree"],
-	"forest": ["tree", "tree", "tree", "bush1", "bush2", "bush3"],
+	"grassland": ["rock1", "rock2", "bush1", "bush2", "bush4", "tree", "tree"],
+	"forest": ["tree", "tree", "tree", "bush1", "bush2", "bush3", "bush4"],
 	"ruins": ["rock1", "rock2", "rock3", "rock4"],
-	"deep": ["bush3", "rock3", "rock4", "tree"],
+	"deep": ["bush3", "bush4", "rock3", "rock4", "tree"],
 }
 
 ## Tilemap_Flat 中纯室内地面瓦片（row 1-2 是无边缘的完整地面，row 0/3 是边缘瓦片）
@@ -129,9 +129,10 @@ const FRAMES := {
 
 const DECOR := {
 	"tree": TS_UPD + "Resources/Trees/Tree.png",   # 768×576 = 4×3 grid, row0 = 4帧摇曳动画
-	"bush1": TS_BASE + "Terrain/Decorations/Bushes/Bushe1.png",
+	"bush1": TS_BASE + "Terrain/Decorations/Bushes/Bushe1.png",  # 1024×128 = 16帧 64px
 	"bush2": TS_BASE + "Terrain/Decorations/Bushes/Bushe2.png",
 	"bush3": TS_BASE + "Terrain/Decorations/Bushes/Bushe3.png",
+	"bush4": TS_BASE + "Terrain/Decorations/Bushes/Bushe4.png",
 	"rock1": TS_BASE + "Terrain/Decorations/Rocks/Rock1.png",
 	"rock2": TS_BASE + "Terrain/Decorations/Rocks/Rock2.png",
 	"rock3": TS_BASE + "Terrain/Decorations/Rocks/Rock3.png",
@@ -141,7 +142,7 @@ const DECOR := {
 ## 装饰精灵的 cell 大小
 const DECOR_CELL := {
 	"tree": 192,
-	"bush1": 128, "bush2": 128, "bush3": 128,
+	"bush1": 64, "bush2": 64, "bush3": 64, "bush4": 64,
 	"rock1": 64, "rock2": 64, "rock3": 64, "rock4": 64,
 }
 

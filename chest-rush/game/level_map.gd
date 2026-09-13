@@ -296,7 +296,7 @@ func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> voi
 	if tex == null:
 		return
 	var is_tree := key == "tree"
-	var is_bush := cell >= 128 and not is_tree
+	var is_bush := key.begins_with("bush")
 	var sc := 0.20 if is_tree else (0.30 if is_bush else 0.30)
 
 	if is_tree:
@@ -330,26 +330,45 @@ func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> voi
 		body.add_child(s)
 		add_child(body)
 		body.global_position = pos
-	else:
-		# 灌木/岩石：静态首帧
-		var sprite_tex: Texture2D = tex
-		if cell > 0 and tex.get_width() > cell:
-			var src_img := tex.get_image()
-			var img_h := src_img.get_height()
-			var sub := Image.create(cell, img_h, false, Image.FORMAT_RGBA8)
-			sub.blit_rect(src_img, Rect2i(0, 0, cell, img_h), Vector2i.ZERO)
-			sprite_tex = ImageTexture.create_from_image(sub)
-		var s := Sprite2D.new()
-		s.texture = sprite_tex
-		s.scale = Vector2(sc, sc)
-		s.z_index = -5
-		add_child(s)
-		s.global_position = pos
-		# 灌木用缩放呼吸
-		if is_bush:
-			var tw := s.create_tween().set_loops()
-			tw.tween_property(s, "scale", Vector2(sc * 1.08, sc * 1.08), 1.5).set_trans(Tween.TRANS_SINE)
-			tw.tween_property(s, "scale", Vector2(sc, sc), 1.5).set_trans(Tween.TRANS_SINE)
+	elif is_bush:
+		# 灌木：用 16 帧条带动画（风吹摇曳）+ 底部碰撞
+		var bframes := Art.strip_frame_count(path, cell)
+		if bframes > 1:
+			var bsf := SpriteFrames.new()
+			bsf.add_animation("sway")
+			bsf.set_animation_speed("sway", rng.randf_range(3.0, 5.0))
+			bsf.set_animation_loop("sway", true)
+			for i in bframes:
+				var ftex: Texture2D = Art.slice_strip(path, cell, i)
+				if ftex:
+					bsf.add_frame("sway", ftex)
+			var bs := AnimatedSprite2D.new()
+			bs.sprite_frames = bsf
+			bs.scale = Vector2(sc, sc)
+			bs.z_index = 3
+			bs.play("sway")
+			bs.frame = rng.randi() % bframes
+			# 底部碰撞
+			var body := StaticBody2D.new()
+			body.collision_layer = 4
+			body.collision_mask = 0
+			var cs := CollisionShape2D.new()
+			var shape := RectangleShape2D.new()
+			shape.size = Vector2(8, 6)
+			cs.shape = shape
+			cs.position = Vector2(0, 4)
+			body.add_child(cs)
+			body.add_child(bs)
+			add_child(body)
+			body.global_position = pos
+		else:
+			# 单帧回退
+			var s := Sprite2D.new()
+			s.texture = tex
+			s.scale = Vector2(sc, sc)
+			s.z_index = -5
+			add_child(s)
+			s.global_position = pos
 
 
 ## 地板：用关卡专属色板瓦片平铺
