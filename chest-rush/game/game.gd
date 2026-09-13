@@ -71,9 +71,11 @@ func _ready() -> void:
 	extract_countdown = data.extract_countdown
 	spawn_radius = data.spawn_radius
 	_knocker_next_round = data.knocker_first_round
-	# 注入地图数据并构建
+	# 注入地图数据并构建（程序化 BSP 生成）
 	level = $World/LevelMap
 	level.setup_level(data)
+	var gen_map := MapGenerator.generate(data.seed, data.chest_count, data.obstacle_count, data.spawn_count)
+	level.setup_level_data(gen_map)
 	level._build()
 	fog = $FogOfWar
 	fog.setup(level)
@@ -90,6 +92,13 @@ func _ready() -> void:
 	for i in mini(quest_target, bag.size()):
 		bag[i].has_quest = true
 	level.destructible_destroyed.connect(_on_destructible_destroyed)
+	# 创建 3 只武器召唤物（世界空间实体，跟随玩家）
+	for i in Weapon.LOADOUT.size():
+		var w := Weapon.new()
+		_world.add_child(w)
+		w.global_position = level.player_start
+		w.setup(i, player, level, fog)
+		player.weapons.append(w)
 	# HUD
 	hud = $HUD
 	hud.setup(self)

@@ -37,12 +37,7 @@ func _ready() -> void:
 	_sprite = AnimHelper.build_sprite(anims, 8.0, 0.33, Art.UNIT_CELL)
 	_pivot.add_child(_sprite)
 	_make_hp_bar()
-	# 挂 3 只鬼（本关固定装备，来自 LOADOUT 的 .tres）
-	for i in Weapon.LOADOUT.size():
-		var w := Weapon.new()
-		add_child(w)
-		w.setup(i, self)
-		weapons.append(w)
+	# 武器召唤物由 game.gd 创建并加入 World（不再作为 Player 子节点）
 
 
 ## 头顶常驻血条（观察受击）；数值仍在 HUD 左上角

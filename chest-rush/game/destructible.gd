@@ -48,19 +48,17 @@ func setup(k: Kind, t: Vector2i) -> void:
 	sf.set_animation_loop("idle", true)
 	if k == Kind.OBSTACLE:
 		hp = obstacle_hp
-		# 障碍用木桶：切第一帧 192px，放大到 ~48px（比装饰岩石大且形状不同）
+		# 障碍用木桶：切第一帧 192px，缩放 0.25 = 48px
 		var barrel_tex: Texture2D = Art.slice_strip(OBSTACLE_TEX, Art.OBSTACLE_CELL, 0)
 		if barrel_tex:
 			sf.add_frame("idle", barrel_tex)
-		_sprite.scale = Vector2(0.25, 0.25)  # 192*0.25=48px
-		_sprite.offset = Vector2(0, 8)  # 下移避免顶部被墙遮挡
+		_sprite.scale = Vector2(0.25, 0.25)
 	else:
-		# 宝箱用 Gold Mine（192x128），缩放 0.35 + 下移避免顶部裁切
+		# 宝箱用 Gold Stone（128x128 金矿石），缩放 0.25 = 32px = 1 格，无悬空
 		var tex: Texture2D = load(CHEST_TEX)
 		if tex:
 			sf.add_frame("idle", tex)
-		_sprite.scale = Vector2(0.35, 0.35)  # 192*0.35=67px宽, 128*0.35=45px高
-		_sprite.offset = Vector2(0, 10)  # 下移避免贴墙时顶部被裁切
+		_sprite.scale = Vector2(0.25, 0.25)
 	_sprite.sprite_frames = sf
 	_sprite.play("idle")
 	add_child(_sprite)

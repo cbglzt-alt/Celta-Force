@@ -31,8 +31,12 @@ func _ready() -> void:
 		_build()
 
 
-func setup_level(data) -> void:
-	map_data = data.map.duplicate()
+func setup_level(_data) -> void:
+	pass  # 关卡参数由 game.gd 直接设置；地图数据通过 setup_level_data 注入
+
+
+func setup_level_data(map: Array[String]) -> void:
+	map_data = map.duplicate()
 
 
 func world_to_tile(p: Vector2) -> Vector2i:
@@ -324,12 +328,6 @@ class FloorBG extends Node2D:
 				for x in w:
 					var tex: Texture2D = _floor_tiles[_rng.randi() % _floor_tiles.size()]
 					draw_texture_rect(tex, Rect2(Vector2(x * ts, y * ts), cell), false)
-			# 淡网格线（保持格子可读性）
-			var line := Color(0, 0, 0, 0.10)
-			for x in w + 1:
-				draw_line(Vector2(x * ts, 0), Vector2(x * ts, h * ts), line)
-			for y in h + 1:
-				draw_line(Vector2(0, y * ts), Vector2(w * ts, y * ts), line)
 
 
 ## 墙体一次性绘制：从 Tilemap_Elevation 图集取悬崖瓦片（顶/面/暗面）

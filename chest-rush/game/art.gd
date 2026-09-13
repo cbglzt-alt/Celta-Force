@@ -150,8 +150,8 @@ const EXPLOSION_CELL := 192
 const ARROW_SPRITE := TS_BASE + "Units/Red Units/Archer/Arrow.png"
 
 ## 宝箱/障碍物
-const CHEST_SPRITE := TS_UPD + "Resources/Gold Mine/GoldMine_Active.png"
-const CHEST_OPEN_SPRITE := TS_UPD + "Resources/Gold Mine/GoldMine_Inactive.png"
+const CHEST_SPRITE := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 1.png"
+const CHEST_OPEN_SPRITE := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 2.png"
 const OBSTACLE_SPRITE := TS_UPD + "Factions/Goblins/Troops/Barrel/Blue/Barrel_Blue.png"
 const OBSTACLE_CELL := 192  # Barrel_Blue is 768x768 = 4x4 grid of 192px
 

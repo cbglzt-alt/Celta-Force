@@ -16,11 +16,24 @@ var range_mult := 1.0   # 域：攻击强化时范围略放大；刀/矢保持 1
 
 var _cool := 0.0
 var _player: Node2D
-var _marker: Node2D
+var _level: Node2D
+var _fog: Node2D
+var _marker: AnimatedSprite2D
 var _marker_anim := "idle"
 var _space: PhysicsDirectSpaceState2D
 var _los_query: PhysicsRayQueryParameters2D
 var _aura_ring: Polygon2D  # 域常驻范围圈，升级时重算半径
+
+## 召唤物状态
+enum State { FOLLOW, APPROACH, ATTACK }
+var _state := State.FOLLOW
+var _idx := 0
+var _attack_anim_time := 0.0  # 攻击动画锁定（防止被 walk/idle 覆盖）
+const FOLLOW_SPEED := 5.0  # lerp 速度（拖尾延迟感）
+## V 形阵型偏移（召唤物在玩家身后）
+const FORMATIONS: Array[Vector2] = [
+	Vector2(-24, 20), Vector2(0, 32), Vector2(24, 20),
+]
 
 const ProjectileScene := preload("res://game/projectile.tscn")
 
@@ -35,33 +48,36 @@ func _world() -> Node2D:
 	return get_tree().root.find_child("World", true, false)
 
 
-## 攻击发出的源点（玩家位置）
+## 攻击发出的源点（召唤物自身位置，不再是玩家位置）
 func _src() -> Vector2:
-	return _player.global_position if _player != null else global_position
+	return global_position
 
 
-## 由 Player 在 add_child 后调用
-func setup(idx: int, player_ref: Node2D) -> void:
+## 由 Game 在 add_child 后调用（武器现在是世界空间实体，不是 Player 子节点）
+func setup(idx: int, player_ref: Node2D, level_ref: Node2D, fog_ref: Node2D) -> void:
+	_idx = idx
 	data = load(LOADOUT[idx])
 	_player = player_ref
-	# 鬼的可视化：有 sprite_key 用 dungeon 像素 sprite（含 attack 动画，近战挥刀用）
+	_level = level_ref
+	_fog = fog_ref
+	z_index = 50  # 召唤物渲染在迷雾之上（玩家始终可见自己的召唤物）
+	# 召唤物可视化精灵
 	if data.sprite_key != "" and Art.FRAMES.has(data.sprite_key):
 		_marker = _make_ghost_sprite(data.sprite_key)
 	else:
 		var dot := Polygon2D.new()
 		dot.polygon = Player.circle_poly(5.0, 6)
 		dot.color = data.color
-		_marker = dot
+		# dot can't play animations; use as fallback only
+	_marker = _marker if _marker != null else AnimatedSprite2D.new()
 	add_child(_marker)
 	_space = get_world_2d().direct_space_state
-	# 视线检测：只撞墙体与障碍/宝箱（层 4），忽略敌人(2)/玩家(1)
 	_los_query = PhysicsRayQueryParameters2D.new()
 	_los_query.collision_mask = 4
 	_los_query.collide_with_areas = false
 	if data.pattern == WeaponData.Pattern.AURA:
 		_aura_ring = Polygon2D.new()
 		_aura_ring.polygon = _ring_poly(_eff_range(), 48)
-		# 范围圈保持原紫；伤害字/HUD 用 data.color（火焰红）
 		_aura_ring.color = Color(0.753, 0.518, 0.988, 0.14)
 		_aura_ring.z_index = -1
 		add_child(_aura_ring)
@@ -95,17 +111,15 @@ func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
 	return s
 
 
-## 鬼 sprite：tiny-swords 单位精灵（缩放 0.18，比主角小一号）。刀鬼带 attack 动画。
+## 鬼 sprite：所有召唤物配 idle + walk，有 attack 的加上
 func _make_ghost_sprite(sprite_key: String) -> AnimatedSprite2D:
 	var anims := Art.anims_of(sprite_key)
-	if sprite_key == "enemy" and anims.has("attack"):
-		# 刀鬼：idle + attack（挥刀）
-		return AnimHelper.build_sprite({
-			"idle": anims["idle"],
-			"attack": anims["attack"],
-		}, 9.0, 0.18, Art.UNIT_CELL)
-	# 矢/域鬼：只 idle
-	return AnimHelper.build_sprite({"idle": anims["idle"]}, 9.0, 0.18, Art.UNIT_CELL)
+	var sprite_anims := {"idle": anims["idle"]}
+	if anims.has("walk"):
+		sprite_anims["walk"] = anims["walk"]
+	if anims.has("attack"):
+		sprite_anims["attack"] = anims["attack"]
+	return AnimHelper.build_sprite(sprite_anims, 9.0, 0.22, Art.UNIT_CELL)
 
 
 ## 近战攻击时：刀鬼播挥刀动画（朝目标翻转），播完回 idle
@@ -130,7 +144,7 @@ func _play_attack_anim(target: Node2D) -> void:
 ## 用"命中点到目标距离 < 半格"判定打到目标，对薄墙不失效。
 ## 射线起点用玩家位置（武器挂在玩家身上，攻击自玩家发出）。
 func _blocked(target_pos: Vector2) -> bool:
-	var from: Vector2 = _player.global_position if _player != null else global_position
+	var from: Vector2 = global_position
 	var to := target_pos
 	var cur := from
 	var exclude: Array = []
@@ -151,31 +165,82 @@ func _blocked(target_pos: Vector2) -> bool:
 
 
 func _physics_process(delta: float) -> void:
-	if data == null:
+	if data == null or _player == null or not is_instance_valid(_player):
 		return
-	# 槽位环绕玩家标记（3 只鬼的位置提示）
-	var idx: int = get_index()
-	var ang := Time.get_ticks_msec() / 1000.0 * 1.6 + idx * TAU / 3.0
-	_marker.position = Vector2(cos(ang), sin(ang)) * 24.0
-
 	_cool -= delta
-	if _cool > 0.0:
+	_attack_anim_time -= delta
+	# 召唤物状态机：跟随 → 接敌 → 攻击
+	var target := _nearest_enemy(_eff_range() * 1.5)
+	if target == null:
+		_state = State.FOLLOW
+	elif global_position.distance_to(target.global_position) <= _eff_range():
+		_state = State.ATTACK
+	else:
+		_state = State.APPROACH
+
+	# 移动逻辑
+	match _state:
+		State.FOLLOW:
+			_move_to(_player.global_position + FORMATIONS[_idx], delta)
+			_play_anim("walk" if global_position.distance_to(_player.global_position + FORMATIONS[_idx]) > 5.0 else "idle")
+		State.APPROACH:
+			if target != null:
+				_move_to(target.global_position, delta)
+				_play_anim("walk")
+		State.ATTACK:
+			if target != null and _cool <= 0.0:
+				_cool = data.cooldown
+				_play_anim("attack")
+				_fire_at(target)
+			elif _cool > 0.0:
+				# 攻击冷却中，微调到攻击范围边缘
+				_play_anim("idle")
+
+	# AURA 范围圈跟随武器位置
+	if _aura_ring != null:
+		_aura_ring.global_position = global_position
+
+
+## 召唤物移动：lerp 向目标位置（有拖尾延迟感）
+func _move_to(target_pos: Vector2, delta: float) -> void:
+	var speed := FOLLOW_SPEED * delta
+	global_position = global_position.lerp(target_pos, minf(speed, 1.0))
+	# 朝向翻转
+	if _marker != null:
+		var dx := target_pos.x - global_position.x
+		if absf(dx) > 2.0:
+			_marker.flip_h = dx < 0.0
+
+
+## 召唤物动画播放
+func _play_anim(anim_name: String) -> void:
+	if _marker == null or not (_marker is AnimatedSprite2D):
 		return
-	var target := _nearest_enemy(_eff_range())
-	# 破坏物（宝箱/障碍）只有近战可打，免疫远程与范围
-	var destruct: Node2D = _nearest_destructible(_eff_range()) if data.pattern == WeaponData.Pattern.SLASH else null
-	if target == null and destruct == null:
+	# 攻击动画锁定期间不覆盖
+	if _attack_anim_time > 0.0 and anim_name != "attack":
 		return
-	_cool = data.cooldown
+	var s := _marker as AnimatedSprite2D
+	if s.sprite_frames == null or not s.sprite_frames.has_animation(anim_name):
+		if anim_name != "idle" and s.sprite_frames and s.sprite_frames.has_animation("idle"):
+			anim_name = "idle"
+		else:
+			return
+	if _marker_anim == anim_name:
+		return
+	_marker_anim = anim_name
+	s.play(anim_name)
+
+
+## 发射攻击（按 pattern 分派）
+func _fire_at(target: Node2D) -> void:
+	_attack_anim_time = 0.4  # 锁定攻击动画 0.4s
 	match data.pattern:
 		WeaponData.Pattern.SLASH:
-			# 优先打敌人，无敌人则挥向障碍/宝箱（清障开箱 = 走位决策）
+			var destruct: Node2D = _nearest_destructible(_eff_range())
 			_fire_slash(target if target != null else destruct)
 		WeaponData.Pattern.BOLT:
 			if target != null:
 				_fire_bolt(target)
-			else:
-				_cool = 0.0  # 弹打不到障碍（会撞墙），不进入冷却
 		WeaponData.Pattern.AURA:
 			_fire_aura()
 
@@ -214,8 +279,6 @@ func _fire_slash(target: Node2D) -> void:
 	var src := _src()
 	var dir: Vector2 = (target.global_position - src).normalized()
 	var r := _eff_range()
-	# 挥刀动画：刀鬼播 attack
-	_play_attack_anim(target)
 	# 可见扇形弧光特效（半透明彩色扇区，快速淡出）
 	_spawn_slash_fx(src, dir, r, data.color)
 	# 前方扇区内无遮挡的敌人
