@@ -199,6 +199,12 @@ const UI_ICONS_DIR := UI010_DIR + "Icons/"
 ## 死亡精灵（通用倒地）
 const DEAD_SPRITE := TS_UPD + "Factions/Knights/Troops/Dead/Dead.png"
 
+## 房屋精灵（128×192，5 色变体）
+const HOUSE_DIR := TS_UPD + "Factions/Knights/Buildings/House/"
+const HOUSE_VARIANTS: Array[String] = [
+	"House_Blue.png", "House_Red.png", "House_Yellow.png", "House_Purple.png",
+]
+
 
 # ---- 旧 TILES 兼容（level_map 等暂用 tile(name) 的地方返回空串即可） ----
 static func tile(name: String) -> String:

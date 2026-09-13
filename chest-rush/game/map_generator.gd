@@ -18,12 +18,12 @@ var _corridors: Array[Rect2i] = []
 
 ## 生成地图。seed_val 控制随机性（同 seed = 同布局）。
 ## chest_count / obstacle_count / spawn_count 控制各元素数量。
-static func generate(seed_val: int, chest_count: int, obstacle_count: int, spawn_count: int) -> Array[String]:
+static func generate(seed_val: int, chest_count: int, obstacle_count: int, spawn_count: int, house_count: int) -> Array[String]:
 	var gen := MapGenerator.new()
 	gen._rng.seed = seed_val
 	gen._init_grid()
 	gen._split_and_build(Rect2i(1, 1, W - 2, H - 2), 0)
-	gen._place_features(chest_count, obstacle_count, spawn_count)
+	gen._place_features(chest_count, obstacle_count, spawn_count, house_count)
 	return gen._grid
 
 
@@ -131,7 +131,7 @@ func _carve_corridor(a: int, b: int, fixed: int, vertical := false) -> void:
 
 
 ## 放置功能元素
-func _place_features(chest_count: int, obstacle_count: int, spawn_count: int) -> void:
+func _place_features(chest_count: int, obstacle_count: int, spawn_count: int, house_count: int) -> void:
 	# 连接走廊
 	_connect_rooms()
 	# 按位置排序房间（左上 → 右下），放起点/出口
@@ -179,6 +179,22 @@ func _place_features(chest_count: int, obstacle_count: int, spawn_count: int) ->
 		var sy := _rng.randi_range(r.position.y, r.position.y + r.size.y - 1)
 		if _get_char(sx, sy) == ".":
 			_set_char(sx, sy, "S")
+			placed += 1
+
+
+	# 房屋点缀：大房间中心放房屋
+	placed = 0
+	tries = 0
+	while placed < house_count and tries < 100:
+		tries += 1
+		# 找较大的房间放房屋
+		var r: Rect2i = _rooms[_rng.randi() % _rooms.size()]
+		if r.size.x < 5 or r.size.y < 4:
+			continue
+		var hx := r.position.x + r.size.x / 2
+		var hy := r.position.y + r.size.y / 2
+		if _get_char(hx, hy) == ".":
+			_set_char(hx, hy, "H")
 			placed += 1
 
 

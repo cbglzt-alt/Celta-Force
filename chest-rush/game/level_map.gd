@@ -141,6 +141,8 @@ func _build() -> void:
 					spawn_points.append(center)
 				"P":
 					player_start = center
+				"H":
+					_make_house(center, t)
 
 	add_child(wall_body)
 	add_child(wall_visual)
@@ -231,7 +233,32 @@ func _on_destructible_destroyed(d) -> void:
 	destructible_destroyed.emit(d)
 
 
-## 装饰层：地面树木/灌木/岩石（按关卡主题选择）。纯视觉，不占格、不碰撞。
+## 房屋：StaticBody2D 底部碰撞 + 精灵在 z_index=1（玩家可从上方/侧面穿过，底部挡住）
+## 房屋不加入 walls 字典（不挡视野/寻路），只做物理碰撞
+func _make_house(center: Vector2, _t: Vector2i) -> void:
+	var body := StaticBody2D.new()
+	body.collision_layer = 4  # 同墙体层：挡玩家/敌人/LOS
+	body.collision_mask = 0
+	# 底部碰撞条（只有房屋底部挡路，上方/侧面可穿过）
+	var cs := CollisionShape2D.new()
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(36, 14)
+	cs.shape = shape
+	cs.position = Vector2(0, 14)  # 偏向底部
+	body.add_child(cs)
+	# 房屋精灵（128×192 缩放 0.5 = 64×96px，底部对齐格子底边）
+	var idx := randi() % Art.HOUSE_VARIANTS.size()
+	var sprite := Sprite2D.new()
+	sprite.texture = load(Art.HOUSE_DIR + Art.HOUSE_VARIANTS[idx])
+	sprite.scale = Vector2(0.5, 0.5)
+	sprite.offset = Vector2(0, -32)  # 上移使底部对齐格底
+	sprite.z_index = 1  # 在玩家(0)之上，玩家可"走到房屋后面"
+	body.add_child(sprite)
+	add_child(body)
+	body.global_position = center
+
+
+## 装饰层：地面树木/灌木/岩石（按关卡主题选择）。纯视觉 + 底部碰撞。
 func _build_decor() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260728
@@ -273,10 +300,10 @@ func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> voi
 	var sc := 0.20 if is_tree else (0.30 if is_bush else 0.30)
 
 	if is_tree:
-		# 树：用 Tree.png 的 4 帧网格动画（row0 摇曳帧）
+		# 树：用 Tree.png 的 4 帧网格动画（row0 摇曳帧）+ 底部碰撞
 		var sf := SpriteFrames.new()
 		sf.add_animation("sway")
-		sf.set_animation_speed("sway", 3.0)  # 3fps 慢摇曳
+		sf.set_animation_speed("sway", 3.0)
 		sf.set_animation_loop("sway", true)
 		for g in Art.TREE_FRAMES:
 			var frame_tex: Texture2D = Art.slice_grid(path, cell, g.x, g.y)
@@ -285,13 +312,24 @@ func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> voi
 		var s := AnimatedSprite2D.new()
 		s.sprite_frames = sf
 		s.scale = Vector2(sc, sc)
+		s.offset = Vector2(0, -8)  # 底部对齐格子底边
 		s.z_index = 3  # 渲染在墙体之上
-		add_child(s)
-		s.global_position = pos
 		s.play("sway")
-		# 随机起始帧 + 偏移速度，避免所有树同步摇摆
 		s.frame = rng.randi() % Art.TREE_FRAMES.size()
 		s.sprite_frames.set_animation_speed("sway", rng.randf_range(2.5, 4.0))
+		# 用 StaticBody2D 包裹：底部树干碰撞，上方/侧面可穿过
+		var body := StaticBody2D.new()
+		body.collision_layer = 4
+		body.collision_mask = 0
+		var cs := CollisionShape2D.new()
+		var shape := RectangleShape2D.new()
+		shape.size = Vector2(10, 8)  # 细树干碰撞
+		cs.shape = shape
+		cs.position = Vector2(0, 6)
+		body.add_child(cs)
+		body.add_child(s)
+		add_child(body)
+		body.global_position = pos
 	else:
 		# 灌木/岩石：静态首帧
 		var sprite_tex: Texture2D = tex

@@ -77,7 +77,7 @@ func _ready() -> void:
 	level = $World/LevelMap
 	level.setup_level(data)
 	level.setup_theme(data.tile_theme, data.decor_theme)
-	var gen_map := MapGenerator.generate(data.seed, data.chest_count, data.obstacle_count, data.spawn_count)
+	var gen_map := MapGenerator.generate(data.seed, data.chest_count, data.obstacle_count, data.spawn_count, data.house_count)
 	level.setup_level_data(gen_map)
 	level._build()
 	fog = $FogOfWar

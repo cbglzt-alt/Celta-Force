@@ -15,12 +15,13 @@ class LevelDef:
 	var chest_count: int = 10
 	var obstacle_count: int = 6
 	var spawn_count: int = 10
+	var house_count: int = 3  # 地图点缀房屋数量
 	## 视觉主题
 	var tile_theme: String = "grass"       # 地形色板 key
 	var decor_theme: String = "grassland"   # 装饰组合 key
 	var atmosphere: Color = Color(0.95, 0.92, 0.85)  # 氛围色调
 
-	func _init(n: String, qt: int, ri: float, ec: float, sr: float, kr: int, sd: int, cc: int, oc: int, sc: int, tt: String, dt: String, atmo: Color) -> void:
+	func _init(n: String, qt: int, ri: float, ec: float, sr: float, kr: int, sd: int, cc: int, oc: int, sc: int, hc: int, tt: String, dt: String, atmo: Color) -> void:
 		name = n
 		quest_target = qt
 		round_interval = ri
@@ -31,6 +32,7 @@ class LevelDef:
 		chest_count = cc
 		obstacle_count = oc
 		spawn_count = sc
+		house_count = hc
 		tile_theme = tt
 		decor_theme = dt
 		atmosphere = atmo
@@ -40,18 +42,18 @@ class LevelDef:
 ## 每关有独特的地形色板、氛围色调、装饰组合
 static var LEVELS: Array = [
 	# Level 1: 草原遗迹 — 亮绿草地，温暖阳光，散布岩石灌木
-	LevelDef.new("草原遗迹", 3, 25.0, 80.0, 220.0, 4, 1001, 10, 6, 10,
+	LevelDef.new("草原遗迹", 3, 25.0, 80.0, 220.0, 4, 1001, 10, 6, 10, 3,
 		"grass", "grassland", Color(0.95, 0.92, 0.82)),
 
 	# Level 2: 森林小径 — 深绿密林，偏绿氛围，树木茂密
-	LevelDef.new("森林小径", 4, 22.0, 75.0, 220.0, 3, 2002, 12, 8, 11,
+	LevelDef.new("森林小径", 4, 22.0, 75.0, 220.0, 3, 2002, 12, 8, 11, 4,
 		"forest", "forest", Color(0.72, 0.88, 0.68)),
 
 	# Level 3: 城堡废墟 — 枯黄废墟，灰暗氛围，只有岩石
-	LevelDef.new("城堡废墟", 5, 20.0, 70.0, 240.0, 3, 3003, 14, 10, 12,
+	LevelDef.new("城堡废墟", 5, 20.0, 70.0, 240.0, 3, 3003, 14, 10, 12, 5,
 		"ruins", "ruins", Color(0.82, 0.80, 0.72)),
 
 	# Level 4: 鬼域深处 — 青蓝鬼域，幽暗紫调，稀疏诡异
-	LevelDef.new("鬼域深处", 6, 18.0, 65.0, 260.0, 2, 4004, 16, 12, 14,
+	LevelDef.new("鬼域深处", 6, 18.0, 65.0, 260.0, 2, 4004, 16, 12, 14, 6,
 		"deep", "deep", Color(0.58, 0.52, 0.72)),
 ]
