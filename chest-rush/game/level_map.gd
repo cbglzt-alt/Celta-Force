@@ -343,48 +343,30 @@ class FloorBG extends Node2D:
 					draw_texture_rect(tex, Rect2(Vector2(x * ts, y * ts), cell), false)
 
 
-## 墙体一次性绘制：从 Tilemap_Elevation 图集取悬崖瓦片（顶/面/暗面）
+## 墙体一次性绘制：深色实体 + 描边（不用图集瓦片，避免拼接问题）
 class WallVisual extends Node2D:
 	var wall_tiles: Array[Vector2i] = []
 	var _wall_set: Dictionary = {}  # Vector2i -> true，O(1) 查找
-	var _atlas: Texture2D
-	var _wall_top: Texture2D
-	var _wall_face: Texture2D
-	var _wall_dark: Texture2D
 
 	func _ready() -> void:
-		_atlas = load(Art.ELEV_ATLAS)
-		# 预切三种墙瓦片
-		if _atlas != null:
-			_wall_top = Art.slice_atlas(Art.ELEV_ATLAS, 0, 0, Art.SRC_TILE)
-			_wall_face = Art.slice_atlas(Art.ELEV_ATLAS, 0, 1, Art.SRC_TILE)
-			_wall_dark = Art.slice_atlas(Art.ELEV_ATLAS, 0, 3, Art.SRC_TILE)
-		# 构建墙格集合（O(1) 查找替代遍历）
 		_wall_set.clear()
 		for t in wall_tiles:
 			_wall_set[t] = true
 
 	func _draw() -> void:
-		var ts := 32  # 目标瓦片大小
+		var ts := 32
 		var cell := Vector2(ts, ts)
+		var wall_col := Color(0.18, 0.16, 0.22)
+		var edge_col := Color(0.10, 0.09, 0.14)
 		for t in wall_tiles:
 			var dest := Rect2(Vector2(t.x * ts, t.y * ts), cell)
-			# 选瓦片：墙下方也是墙 → 用暗面（深处）；否则用正面（悬崖面）
 			var below := Vector2i(t.x, t.y + 1)
-			var is_top: bool = not _is_wall(below)
-			var tex: Texture2D
-			if is_top and _wall_top != null:
-				tex = _wall_top
-			elif not is_top and _wall_dark != null:
-				tex = _wall_dark
+			# 墙顶（下方是地板）用稍亮色，墙身用深色
+			if _is_wall(below):
+				draw_rect(dest, wall_col, true)
 			else:
-				tex = _wall_face
-			if tex != null:
-				draw_texture_rect(tex, dest, false)
-			else:
-				draw_rect(dest, Color(0.35, 0.45, 0.45), true)
-			# 描边分出格子
-			draw_rect(dest, Color(0, 0, 0, 0.20), false, 1.0)
+				draw_rect(dest, Color(0.22, 0.20, 0.27), true)
+			draw_rect(dest, edge_col, false, 1.0)
 
 	func _is_wall(t: Vector2i) -> bool:
 		return _wall_set.has(t)

@@ -16,12 +16,13 @@ const SRC_TILE := 64
 const FLAT_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Flat.png"       # 640×256 = 10×4 草地/沙土
 const ELEV_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Elevation.png"   # 256×512 = 4×8 悬崖/墙体
 
-## 每关不同地形色板（Tilemap_color1-5.png，各 576×384 = 9×6 格 64px）
+## 每关不同地形色板——统一用 Tilemap_Flat（已知布局），靠氛围色调区分
+## Tilemap_color 系列布局不同(9×6 vs 10×4)，直接切片会导致取到错误的过渡瓦片
 const TILE_ATLASES := {
-	"grass": TS_BASE + "Terrain/Tileset/Tilemap_color1.png",   # 亮绿草地
-	"forest": TS_BASE + "Terrain/Tileset/Tilemap_color3.png",  # 深绿密林
-	"ruins": TS_BASE + "Terrain/Tileset/Tilemap_color4.png",   # 枯黄废墟
-	"deep": TS_BASE + "Terrain/Tileset/Tilemap_color5.png",    # 青蓝鬼域
+	"grass": FLAT_ATLAS,
+	"forest": FLAT_ATLAS,
+	"ruins": FLAT_ATLAS,
+	"deep": FLAT_ATLAS,
 }
 
 ## 装饰主题：每关用不同装饰组合
