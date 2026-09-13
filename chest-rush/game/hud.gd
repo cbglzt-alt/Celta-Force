@@ -198,43 +198,49 @@ func _build_ui() -> void:
 	_quest_label = _mk_label(tl, "", 16)
 	_quest_label.add_theme_color_override("font_color", Color("#e879f9"))
 
-	# 3 只鬼槽位（左中）
-	var ghosts := HBoxContainer.new()
-	ghosts.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	ghosts.grow_vertical = Control.GROW_DIRECTION_BOTH
-	ghosts.position = Vector2(14 * s, -30 * s)
-	ghosts.add_theme_constant_override("separation", int(16 * s))
-	add_child(ghosts)
-	for i in 3:
-		_ghost_labels.append(_mk_label(ghosts, "", 16))
-
-	# 右上：波次 / 时间
+	# 右上：波次 / 时间 / 视野
 	var tr := VBoxContainer.new()
 	tr.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	tr.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	tr.position = Vector2(-180 * s, 10 * s)
+	tr.position = Vector2(-200 * s, 10 * s)
 	tr.add_theme_constant_override("separation", int(4 * s))
 	add_child(tr)
 	_round_label = _mk_label(tr, "", 16)
 	_time_label = _mk_label(tr, "", 16)
+	_vision_label = _mk_label(tr, "", 14)
 
-	# 左下：强化（触控按钮占位后移至左上 HP 下方）
-	var bl := HBoxContainer.new()
-	bl.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	bl.position = Vector2(14 * s, 96 * s)
-	bl.add_theme_constant_override("separation", int(24 * s))
-	add_child(bl)
-	_up_labels["attack"] = _mk_label(bl, "", 15)
-	_up_labels["speed"] = _mk_label(bl, "", 15)
-	_up_labels["hp"] = _mk_label(bl, "", 15)
+	# ---- 左下：技能栏（3 只鬼槽位，半透明背景）----
+	var skill_bg := ColorRect.new()
+	skill_bg.color = Color(0.12, 0.15, 0.22, 0.85)
+	skill_bg.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	skill_bg.position = Vector2(8 * s, -52 * s)
+	skill_bg.size = Vector2(340 * s, 44 * s)
+	skill_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(skill_bg)
+	var ghosts := HBoxContainer.new()
+	ghosts.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	ghosts.position = Vector2(16 * s, -46 * s)
+	ghosts.add_theme_constant_override("separation", int(20 * s))
+	add_child(ghosts)
+	for i in 3:
+		_ghost_labels.append(_mk_label(ghosts, "", 16))
 
-	# 右下：视野（触控按钮占位后移至右上波次下方）
-	var br := VBoxContainer.new()
-	br.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	br.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	br.position = Vector2(-280 * s, 78 * s)
-	add_child(br)
-	_vision_label = _mk_label(br, "", 15)
+	# ---- 右下：强化栏（3 个升级按钮，半透明背景）----
+	var up_bg := ColorRect.new()
+	up_bg.color = Color(0.12, 0.15, 0.22, 0.85)
+	up_bg.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	up_bg.position = Vector2(-270 * s, -82 * s)
+	up_bg.size = Vector2(262 * s, 74 * s)
+	up_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(up_bg)
+	var up_vb := VBoxContainer.new()
+	up_vb.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	up_vb.position = Vector2(-262 * s, -76 * s)
+	up_vb.add_theme_constant_override("separation", int(4 * s))
+	add_child(up_vb)
+	_up_labels["attack"] = _mk_label(up_vb, "", 15)
+	_up_labels["speed"] = _mk_label(up_vb, "", 15)
+	_up_labels["hp"] = _mk_label(up_vb, "", 15)
 
 	# 顶部中央：撤离倒计时
 	_countdown_label = _mk_label(self, "", 34)
@@ -249,7 +255,7 @@ func _build_ui() -> void:
 	_banner = _mk_label(self, "", 26)
 	_banner.set_anchors_preset(Control.PRESET_CENTER)
 	_banner.custom_minimum_size = Vector2(800 * s, 60 * s)
-	_banner.position = Vector2(-400 * s, -120 * s)
+	_banner.position = Vector2(-400 * s, -160 * s)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.add_theme_color_override("font_color", Color("#fde68a"))
 	_banner.add_theme_constant_override("outline_size", int(6 * s))

@@ -11,7 +11,7 @@ enum Kind { OBSTACLE, CHEST }
 ## 宝箱/障碍精灵路径（tiny-swords）
 const CHEST_TEX := Art.CHEST_SPRITE        # Gold Mine（活跃）
 const CHEST_OPEN_TEX := Art.CHEST_OPEN_SPRITE  # Gold Mine（枯竭）
-const OBSTACLE_TEX := Art.OBSTACLE_SPRITE   # Rock
+const OBSTACLE_TEX := Art.OBSTACLE_SPRITE   # Barrel（木桶，与装饰岩石区分）
 
 @export var obstacle_hp := 90.0
 @export var chest_open_time := 3.5  # 贴近读条秒数
@@ -41,23 +41,27 @@ func setup(k: Kind, t: Vector2i) -> void:
 	kind = k
 	tile = t
 	_body.visible = false
-	# 宝箱用 Gold Mine 精灵，障碍用 Rock 精灵（静态 Sprite2D）
 	_sprite = AnimatedSprite2D.new()
-	_sprite.scale = Vector2(0.5, 0.5)  # 缩放到 ~32-64px（≈1-2 格）
 	var sf := SpriteFrames.new()
 	sf.add_animation("idle")
 	sf.set_animation_speed("idle", 1.0)
 	sf.set_animation_loop("idle", true)
-	var tex_path: String = OBSTACLE_TEX if k == Kind.OBSTACLE else CHEST_TEX
-	var tex: Texture2D = load(tex_path)
-	if tex:
-		sf.add_frame("idle", tex)
+	if k == Kind.OBSTACLE:
+		hp = obstacle_hp
+		# 障碍用木桶：切第一帧 192px，放大到 ~48px（比装饰岩石大且形状不同）
+		var barrel_tex: Texture2D = Art.slice_strip(OBSTACLE_TEX, Art.OBSTACLE_CELL, 0)
+		if barrel_tex:
+			sf.add_frame("idle", barrel_tex)
+		_sprite.scale = Vector2(0.25, 0.25)  # 192*0.25=48px
+	else:
+		# 宝箱用 Gold Mine
+		var tex: Texture2D = load(CHEST_TEX)
+		if tex:
+			sf.add_frame("idle", tex)
+		_sprite.scale = Vector2(0.5, 0.5)
 	_sprite.sprite_frames = sf
 	_sprite.play("idle")
 	add_child(_sprite)
-	# 障碍血量
-	if k == Kind.OBSTACLE:
-		hp = obstacle_hp
 
 
 ## 宝箱贴近读条
@@ -167,7 +171,7 @@ func _break_open() -> void:
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(_sprite, "modulate", Color(0.5, 0.45, 0.5), 0.2)
-	tw.tween_property(_sprite, "scale", Vector2(0.35, 0.35), 0.2)
+	tw.tween_property(_sprite, "scale", _sprite.scale * 0.6, 0.2)
 	await tw.finished
 	$CollisionShape2D.set_deferred("disabled", true)
 	remove_from_group("destructibles")

@@ -252,38 +252,38 @@ func _build_decor() -> void:
 
 
 ## 用 tiny-swords 装饰精灵放置地面/墙面装饰
+## 树/灌木用静态首帧 + 旋转/缩放 tween 模拟摇曳（帧间偏移会导致"平移"bug）
 func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> void:
 	var path: String = Art.DECOR[key]
 	var cell: int = Art.DECOR_CELL.get(key, 64)
 	var tex: Texture2D = load(path)
 	if tex == null:
 		return
-	var frame_count := int(tex.get_width() / cell) if cell > 0 else 1
-	if frame_count > 1:
-		# 条带动画（树/灌木摇曳）
-		var sf := SpriteFrames.new()
-		sf.add_animation("idle")
-		sf.set_animation_speed("idle", 5.0)
-		sf.set_animation_loop("idle", true)
-		for i in frame_count:
-			sf.add_frame("idle", Art.slice_strip(path, cell, i))
-		var s := AnimatedSprite2D.new()
-		s.sprite_frames = sf
-		s.play("idle")
-		# 树大、灌木中、岩石小
-		var sc := 0.18 if cell >= 256 else (0.25 if cell >= 128 else 0.45)
-		s.scale = Vector2(sc, sc)
-		s.z_index = -5
-		add_child(s)
-		s.global_position = pos
-	else:
-		# 单帧静态（岩石）
-		var s := Sprite2D.new()
-		s.texture = tex
-		s.scale = Vector2(0.45, 0.45)
-		s.z_index = -5
-		add_child(s)
-		s.global_position = pos
+	# 统一用静态首帧（条带取第一帧，单帧直接用）
+	var sprite_tex: Texture2D = tex
+	if cell > 0 and tex.get_width() > cell:
+		sprite_tex = Art.slice_strip(path, cell, 0)
+	var s := Sprite2D.new()
+	s.texture = sprite_tex
+	# 树大、灌木中、岩石小（岩石缩小以与可攻击障碍区分）
+	var is_tree := cell >= 256
+	var is_bush := cell >= 128 and cell < 256
+	var sc := 0.22 if is_tree else (0.30 if is_bush else 0.30)
+	s.scale = Vector2(sc, sc)
+	s.z_index = -3 if is_tree else -5
+	add_child(s)
+	s.global_position = pos
+	# 摇曳 tween：树用旋转，灌木用缩放呼吸
+	if is_tree:
+		var sway := rng.randf_range(0.015, 0.03)
+		var dur := rng.randf_range(2.5, 4.0)
+		var tw := s.create_tween().set_loops()
+		tw.tween_property(s, "rotation", sway, dur).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(s, "rotation", -sway, dur).set_trans(Tween.TRANS_SINE)
+	elif is_bush:
+		var tw2 := s.create_tween().set_loops()
+		tw2.tween_property(s, "scale", Vector2(sc * 1.08, sc * 1.08), 1.5).set_trans(Tween.TRANS_SINE)
+		tw2.tween_property(s, "scale", Vector2(sc, sc), 1.5).set_trans(Tween.TRANS_SINE)
 
 
 ## 地板：用 tiny-swords 草地瓦片平铺（从 Tilemap_Flat 图集取草地变体）
@@ -335,6 +335,7 @@ class FloorBG extends Node2D:
 ## 墙体一次性绘制：从 Tilemap_Elevation 图集取悬崖瓦片（顶/面/暗面）
 class WallVisual extends Node2D:
 	var wall_tiles: Array[Vector2i] = []
+	var _wall_set: Dictionary = {}  # Vector2i -> true，O(1) 查找
 	var _atlas: Texture2D
 	var _wall_top: Texture2D
 	var _wall_face: Texture2D
@@ -347,6 +348,10 @@ class WallVisual extends Node2D:
 			_wall_top = Art.slice_atlas(Art.ELEV_ATLAS, 0, 0, Art.SRC_TILE)
 			_wall_face = Art.slice_atlas(Art.ELEV_ATLAS, 0, 1, Art.SRC_TILE)
 			_wall_dark = Art.slice_atlas(Art.ELEV_ATLAS, 0, 3, Art.SRC_TILE)
+		# 构建墙格集合（O(1) 查找替代遍历）
+		_wall_set.clear()
+		for t in wall_tiles:
+			_wall_set[t] = true
 
 	func _draw() -> void:
 		var ts := 32  # 目标瓦片大小
@@ -371,7 +376,4 @@ class WallVisual extends Node2D:
 			draw_rect(dest, Color(0, 0, 0, 0.20), false, 1.0)
 
 	func _is_wall(t: Vector2i) -> bool:
-		for w in wall_tiles:
-			if w == t:
-				return true
-		return false
+		return _wall_set.has(t)

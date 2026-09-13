@@ -30,7 +30,7 @@ func setup(dmg: float, direction: Vector2, rng: float, col: Color) -> void:
 		_body.visible = false
 		var s := Sprite2D.new()
 		s.texture = tex
-		s.scale = Vector2(0.15, 0.15)  # 箭矢缩小到 ~10px
+		s.scale = Vector2(0.25, 0.25)  # 箭矢放大到 ~48px，清晰可见
 		add_child(s)
 	else:
 		_body.polygon = Player.circle_poly(4.0, 6)

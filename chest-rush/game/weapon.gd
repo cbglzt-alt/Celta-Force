@@ -214,8 +214,10 @@ func _fire_slash(target: Node2D) -> void:
 	var src := _src()
 	var dir: Vector2 = (target.global_position - src).normalized()
 	var r := _eff_range()
-	# 挥刀动画：刀鬼（skeleton）播 attack，替代扇形弧光
+	# 挥刀动画：刀鬼播 attack
 	_play_attack_anim(target)
+	# 可见扇形弧光特效（半透明彩色扇区，快速淡出）
+	_spawn_slash_fx(src, dir, r, data.color)
 	# 前方扇区内无遮挡的敌人
 	for e in get_tree().get_nodes_in_group("enemies"):
 		var to: Vector2 = e.global_position - src
@@ -228,6 +230,29 @@ func _fire_slash(target: Node2D) -> void:
 		var to: Vector2 = d.global_position - src
 		if to.length() <= r and abs(to.angle_to(dir)) < 0.9 and not _blocked(d.global_position):
 			d.take_damage(_dmg(), src, data.color)
+
+
+## 扇形挥砍特效：半透明彩色扇区，闪现后快速淡出
+func _spawn_slash_fx(src: Vector2, dir: Vector2, r: float, color: Color) -> void:
+	var world := _world()
+	if world == null:
+		return
+	var arc := Polygon2D.new()
+	var pts := PackedVector2Array()
+	pts.append(Vector2.ZERO)
+	var steps := 8
+	var half := 0.9
+	for i in steps + 1:
+		var a := dir.angle() - half + 2.0 * half * float(i) / float(steps)
+		pts.append(Vector2(cos(a), sin(a)) * r)
+	arc.polygon = pts
+	arc.color = Color(color.r, color.g, color.b, 0.35)
+	arc.z_index = 5
+	world.add_child(arc)
+	arc.global_position = src
+	var tw := arc.create_tween()
+	tw.tween_property(arc, "modulate:a", 0.0, 0.18)
+	tw.tween_callback(arc.queue_free)
 
 
 func _fire_bolt(target: Node2D) -> void:
@@ -278,7 +303,7 @@ func _spawn_aura_flames(origin: Vector2) -> void:
 	for off in spots:
 		var s := AnimatedSprite2D.new()
 		s.sprite_frames = sf
-		s.scale = Vector2(0.2, 0.2)  # tiny-swords fire 192px → ~38px
+		s.scale = Vector2(0.3, 0.3)  # tiny-swords fire 192px → ~58px，醒目
 		s.z_index = -1
 		s.z_as_relative = false
 		world.add_child(s)
