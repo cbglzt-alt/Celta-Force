@@ -209,35 +209,39 @@ func _build_ui() -> void:
 	_time_label = _mk_label(tr, "", 16)
 	_vision_label = _mk_label(tr, "", 14)
 
-	# ---- 左下：技能栏（3 只鬼槽位，半透明背景）----
-	var skill_bg := ColorRect.new()
-	skill_bg.color = Color(0.12, 0.15, 0.22, 0.85)
-	skill_bg.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	skill_bg.position = Vector2(8 * s, -52 * s)
-	skill_bg.size = Vector2(340 * s, 44 * s)
-	skill_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(skill_bg)
+	# ---- 左下：技能栏（3 只鬼槽位，带边框圆角面板）----
+	var skill_panel := PanelContainer.new()
+	skill_panel.add_theme_stylebox_override("panel", _mk_style())
+	skill_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	skill_panel.position = Vector2(8 * s, -54 * s)
+	skill_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(skill_panel)
 	var ghosts := HBoxContainer.new()
+	ghosts.add_theme_constant_override("separation", int(16 * s))
 	ghosts.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	ghosts.position = Vector2(16 * s, -46 * s)
-	ghosts.add_theme_constant_override("separation", int(20 * s))
-	add_child(ghosts)
+	skill_panel.add_child(ghosts)
 	for i in 3:
-		_ghost_labels.append(_mk_label(ghosts, "", 16))
+		var slot := PanelContainer.new()
+		slot.add_theme_stylebox_override("panel", _mk_slot_style())
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ghosts.add_child(slot)
+		var l := _mk_label(slot, "", 16)
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.custom_minimum_size = Vector2(90 * s, 30 * s)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_ghost_labels.append(l)
 
-	# ---- 右下：强化栏（3 个升级按钮，半透明背景）----
-	var up_bg := ColorRect.new()
-	up_bg.color = Color(0.12, 0.15, 0.22, 0.85)
-	up_bg.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	up_bg.position = Vector2(-270 * s, -82 * s)
-	up_bg.size = Vector2(262 * s, 74 * s)
-	up_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(up_bg)
+	# ---- 右下：强化栏（3 个升级，带边框圆角面板）----
+	var up_panel := PanelContainer.new()
+	up_panel.add_theme_stylebox_override("panel", _mk_style())
+	up_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	up_panel.position = Vector2(-268 * s, -86 * s)
+	up_panel.size = Vector2(260 * s, 78 * s)
+	up_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(up_panel)
 	var up_vb := VBoxContainer.new()
-	up_vb.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	up_vb.position = Vector2(-262 * s, -76 * s)
-	up_vb.add_theme_constant_override("separation", int(4 * s))
-	add_child(up_vb)
+	up_vb.add_theme_constant_override("separation", int(3 * s))
+	up_panel.add_child(up_vb)
 	_up_labels["attack"] = _mk_label(up_vb, "", 15)
 	_up_labels["speed"] = _mk_label(up_vb, "", 15)
 	_up_labels["hp"] = _mk_label(up_vb, "", 15)
@@ -331,3 +335,26 @@ func _mk_label(parent: Node, text: String, size: int) -> Label:
 	l.add_theme_constant_override("outline_size", maxi(3, int(round(4 * _ui_scale))))
 	parent.add_child(l)
 	return l
+
+
+## 面板背景样式：深色半透明 + 浅色边框 + 圆角
+func _mk_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.13, 0.20, 0.88)
+	sb.border_color = Color(0.30, 0.36, 0.50, 0.80)
+	sb.set_border_width_all(maxi(1, int(round(2 * _ui_scale))))
+	sb.set_corner_radius_all(maxi(2, int(round(4 * _ui_scale))))
+	var pad := maxi(4, int(round(8 * _ui_scale)))
+	sb.set_content_margin_all(pad)
+	return sb
+
+
+## 技能槽框样式：更暗 + 细边框
+func _mk_slot_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.08, 0.14, 0.70)
+	sb.border_color = Color(0.25, 0.30, 0.42, 0.70)
+	sb.set_border_width_all(maxi(1, int(round(1 * _ui_scale))))
+	sb.set_corner_radius_all(maxi(2, int(round(3 * _ui_scale))))
+	sb.set_content_margin_all(maxi(2, int(round(4 * _ui_scale))))
+	return sb

@@ -53,12 +53,14 @@ func setup(k: Kind, t: Vector2i) -> void:
 		if barrel_tex:
 			sf.add_frame("idle", barrel_tex)
 		_sprite.scale = Vector2(0.25, 0.25)  # 192*0.25=48px
+		_sprite.offset = Vector2(0, 8)  # 下移避免顶部被墙遮挡
 	else:
-		# 宝箱用 Gold Mine
+		# 宝箱用 Gold Mine（192x128），缩放 0.35 + 下移避免顶部裁切
 		var tex: Texture2D = load(CHEST_TEX)
 		if tex:
 			sf.add_frame("idle", tex)
-		_sprite.scale = Vector2(0.5, 0.5)
+		_sprite.scale = Vector2(0.35, 0.35)  # 192*0.35=67px宽, 128*0.35=45px高
+		_sprite.offset = Vector2(0, 10)  # 下移避免贴墙时顶部被裁切
 	_sprite.sprite_frames = sf
 	_sprite.play("idle")
 	add_child(_sprite)
