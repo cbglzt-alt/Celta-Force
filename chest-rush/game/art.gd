@@ -199,6 +199,11 @@ const UI_ICONS_DIR := UI010_DIR + "Icons/"
 ## 死亡精灵（通用倒地）
 const DEAD_SPRITE := TS_UPD + "Factions/Knights/Troops/Dead/Dead.png"
 
+## 水和桥
+const WATER_SPRITE := TS_UPD + "Terrain/Water/Water.png"  # 64×64 单帧
+const BRIDGE_SPRITE := TS_UPD + "Terrain/Bridge/Bridge_All.png"  # 192×256 = 3×4 grid 64px
+const FOAM_SPRITE := TS_UPD + "Terrain/Water/Foam/Foam.png"  # 1536×192 水花条带
+
 ## 房屋精灵（128×192，5 色变体）
 const HOUSE_DIR := TS_UPD + "Factions/Knights/Buildings/House/"
 const HOUSE_VARIANTS: Array[String] = [

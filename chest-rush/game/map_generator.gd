@@ -18,12 +18,12 @@ var _corridors: Array[Rect2i] = []
 
 ## 生成地图。seed_val 控制随机性（同 seed = 同布局）。
 ## chest_count / obstacle_count / spawn_count 控制各元素数量。
-static func generate(seed_val: int, chest_count: int, obstacle_count: int, spawn_count: int, house_count: int) -> Array[String]:
+static func generate(seed_val: int, chest_count: int, obstacle_count: int, spawn_count: int, house_count: int, water_count: int) -> Array[String]:
 	var gen := MapGenerator.new()
 	gen._rng.seed = seed_val
 	gen._init_grid()
 	gen._split_and_build(Rect2i(1, 1, W - 2, H - 2), 0)
-	gen._place_features(chest_count, obstacle_count, spawn_count, house_count)
+	gen._place_features(chest_count, obstacle_count, spawn_count, house_count, water_count)
 	return gen._grid
 
 
@@ -131,7 +131,7 @@ func _carve_corridor(a: int, b: int, fixed: int, vertical := false) -> void:
 
 
 ## 放置功能元素
-func _place_features(chest_count: int, obstacle_count: int, spawn_count: int, house_count: int) -> void:
+func _place_features(chest_count: int, obstacle_count: int, spawn_count: int, house_count: int, water_count: int) -> void:
 	# 连接走廊
 	_connect_rooms()
 	# 按位置排序房间（左上 → 右下），放起点/出口
@@ -196,6 +196,47 @@ func _place_features(chest_count: int, obstacle_count: int, spawn_count: int, ho
 		if _get_char(hx, hy) == ".":
 			_set_char(hx, hy, "H")
 			placed += 1
+
+	# 池塘：在房间内放 2×3 或 3×2 水域 + 桥梁
+	placed = 0
+	tries = 0
+	while placed < water_count and tries < 100:
+		tries += 1
+		var r: Rect2i = _rooms[_rng.randi() % _rooms.size()]
+		if r.size.x < 5 or r.size.y < 4:
+			continue
+		# 随机选池塘大小和位置
+		var pw := _rng.randi_range(2, 3)
+		var ph := _rng.randi_range(2, 3)
+		var px := _rng.randi_range(r.position.x + 1, r.position.x + r.size.x - pw - 1)
+		var py := _rng.randi_range(r.position.y + 1, r.position.y + r.size.y - ph - 1)
+		# 检查区域是否全是地板
+		var clear := true
+		for wy in range(py, py + ph):
+			for wx in range(px, px + pw):
+				if _get_char(wx, wy) != ".":
+					clear = false
+					break
+			if not clear:
+				break
+		if not clear:
+			continue
+		# 放水
+		for wy in range(py, py + ph):
+			for wx in range(px, px + pw):
+				_set_char(wx, wy, "W")
+		# 放桥：在池塘中间放一列或一行桥
+		if ph >= pw:
+			# 垂直桥：中间列
+			var bx := px + pw / 2
+			for by in range(py, py + ph):
+				_set_char(bx, by, "B")
+		else:
+			# 水平桥：中间行
+			var by := py + ph / 2
+			for bx in range(px, px + pw):
+				_set_char(bx, by, "B")
+		placed += 1
 
 
 func _set_char(x: int, y: int, c: String) -> void:
