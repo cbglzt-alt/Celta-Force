@@ -40,11 +40,6 @@ var _dying := false
 
 func _ready() -> void:
 	add_to_group("enemies")
-	# 鬼奴：Red Warrior 全套动画（idle/walk/attack），192px/帧缩放 0.33
-	_sprite = AnimHelper.build_sprite(Art.anims_of("skeleton1"), 9.0, 0.33, Art.UNIT_CELL)
-	add_child(_sprite)
-	_body.visible = false
-	_make_hp_bar()
 
 
 ## 切换动画（相同则不重播；death 优先于 _dying 锁）
@@ -90,8 +85,8 @@ func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
 	return s
 
 
-## 由 Game 在 add_child 后调用
-func setup(round_num: int, is_enraged: bool, player_ref: Node2D, fog_ref: Node2D, level_ref: Node2D) -> void:
+## 由 Game 在 add_child 后调用。type 决定精灵和数值倍率
+func setup(round_num: int, is_enraged: bool, player_ref: Node2D, fog_ref: Node2D, level_ref: Node2D, type := "skeleton1") -> void:
 	hp = DATA.hp_at(round_num)
 	max_hp = hp
 	damage = DATA.damage_at(round_num)
@@ -103,6 +98,24 @@ func setup(round_num: int, is_enraged: bool, player_ref: Node2D, fog_ref: Node2D
 	_level = level_ref
 	if is_enraged:
 		apply_enrage()
+	# 按类型选精灵和数值
+	var anim_key := "skeleton1"
+	var cell := Art.UNIT_CELL  # 192
+	var sprite_scale := 0.33
+	if type == "lancer":
+		anim_key = "lancer"
+		cell = 320  # Lancer 帧宽 320px
+		sprite_scale = 0.22  # 320*0.22≈70px，比杂兵略大
+		hp *= 2.0  # 重型兵：2倍血量
+		max_hp = hp
+		damage *= 1.5  # 1.5倍伤害
+		gold_drop = maxi(2, gold_drop * 2)  # 2倍金币
+	# 创建精灵（首次调用时）
+	if _sprite == null:
+		_sprite = AnimHelper.build_sprite(Art.anims_of(anim_key), 9.0, sprite_scale, cell)
+		add_child(_sprite)
+		_body.visible = false
+		_make_hp_bar()
 
 
 func apply_enrage() -> void:

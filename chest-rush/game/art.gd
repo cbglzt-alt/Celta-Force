@@ -86,6 +86,13 @@ static func anims_of(name: String) -> Dictionary:
 				"walk": TS_BASE + "Units/Purple Units/Warrior/Warrior_Run.png",
 				"attack": TS_BASE + "Units/Purple Units/Warrior/Warrior_Attack1.png",
 			}
+		"lancer":
+			# Black Lancer（重型长枪兵，320px/帧，12帧idle+6帧run+3帧attack）
+			return {
+				"idle": TS_BASE + "Units/Black Units/Lancer/Lancer_Idle.png",
+				"walk": TS_BASE + "Units/Black Units/Lancer/Lancer_Run.png",
+				"attack": TS_BASE + "Units/Black Units/Lancer/Lancer_Down_Attack.png",
+			}
 		"ghost_domain":
 			# Blue Monk（域/范围鬼）
 			return {

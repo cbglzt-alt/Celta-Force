@@ -225,7 +225,11 @@ func _on_round() -> void:
 	# 数量：前期平缓、后期（7 波起）变陡 —— 先爽后紧
 	var count := 3 + round_num + maxi(0, round_num - 6)
 	for i in count:
-		_spawn_enemy(_random_spawn_pos())
+		# 第 3 波起 25% 概率刷 Lancer（重型长枪兵）
+		if round_num >= 3 and randf() < 0.25:
+			_spawn_enemy(_random_spawn_pos(), "lancer")
+		else:
+			_spawn_enemy(_random_spawn_pos())
 	# 精英敲门鬼：按 _knocker_next_round 节奏刷；场上已有存活则跳过
 	if round_num >= _knocker_next_round and not _has_alive_knocker():
 		_spawn_knocker(_random_spawn_pos())
@@ -260,11 +264,11 @@ func _scale_obstacles() -> void:
 			o.hp = maxf(o.hp, obst_target)
 
 
-func _spawn_enemy(pos: Vector2) -> void:
+func _spawn_enemy(pos: Vector2, type := "skeleton1") -> void:
 	var e = EnemyScene.instantiate()
 	_world.add_child(e)
 	e.global_position = pos + Vector2(randf_range(-8, 8), randf_range(-8, 8))
-	e.setup(round_num, enraged, player, fog, level)
+	e.setup(round_num, enraged, player, fog, level, type)
 	e.died.connect(_on_enemy_died)
 
 
