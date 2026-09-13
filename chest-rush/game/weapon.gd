@@ -1,6 +1,7 @@
 class_name Weapon
-extends Node2D
-## 被动攻击装备（"鬼"）：由 WeaponData(.tres) 驱动，自动索敌、自动开火。
+extends CharacterBody2D
+## 召唤物（被动攻击装备"鬼"）：由 WeaponData(.tres) 驱动。
+## 世界空间实体，有移动 AI（跟随/接敌/攻击）和物理碰撞。
 ## 三种 pattern：SLASH 近战弧 / BOLT 直线弹 / AURA 范围灼烧。
 
 ## 本关固定 3 只鬼（指向 .tres，下一阶段将随关卡数据固化）
@@ -61,6 +62,15 @@ func setup(idx: int, player_ref: Node2D, level_ref: Node2D, fog_ref: Node2D) -> 
 	_level = level_ref
 	_fog = fog_ref
 	z_index = 50  # 召唤物渲染在迷雾之上（玩家始终可见自己的召唤物）
+	# 物理碰撞：只撞墙体/房屋/树/水（layer 4），不撞玩家/敌人/其他召唤物
+	collision_layer = 0
+	collision_mask = 4
+	# 碰撞体（小圆，比精灵小）
+	var cs := CollisionShape2D.new()
+	var shape := CircleShape2D.new()
+	shape.radius = 10.0
+	cs.shape = shape
+	add_child(cs)
 	# 召唤物可视化精灵
 	if data.sprite_key != "" and Art.FRAMES.has(data.sprite_key):
 		_marker = _make_ghost_sprite(data.sprite_key)
@@ -188,23 +198,29 @@ func _physics_process(delta: float) -> void:
 				_move_to(target.global_position, delta)
 				_play_anim("walk")
 		State.ATTACK:
+			velocity = Vector2.ZERO  # 攻击时停止
 			if target != null and _cool <= 0.0:
 				_cool = data.cooldown
 				_play_anim("attack")
 				_fire_at(target)
 			elif _cool > 0.0:
-				# 攻击冷却中，微调到攻击范围边缘
 				_play_anim("idle")
+
+	move_and_slide()  # 统一执行物理移动（碰撞由 CharacterBody2D 处理）
 
 	# AURA 范围圈跟随武器位置
 	if _aura_ring != null:
 		_aura_ring.global_position = global_position
 
 
-## 召唤物移动：lerp 向目标位置（有拖尾延迟感）
+## 召唤物移动：lerp 计算目标速度，由 move_and_slide 执行碰撞
 func _move_to(target_pos: Vector2, delta: float) -> void:
-	var speed := FOLLOW_SPEED * delta
-	global_position = global_position.lerp(target_pos, minf(speed, 1.0))
+	var desired := global_position.lerp(target_pos, minf(FOLLOW_SPEED * delta, 1.0))
+	var to_desired := desired - global_position
+	if to_desired.length() > 0.5:
+		velocity = to_desired / maxf(delta, 0.001)
+	else:
+		velocity = Vector2.ZERO
 	# 朝向翻转
 	if _marker != null:
 		var dx := target_pos.x - global_position.x
