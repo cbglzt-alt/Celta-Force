@@ -29,8 +29,8 @@ const TILE_ATLASES := {
 const DECOR_THEMES := {
 	"grassland": ["rock1", "rock2", "bush1", "bush2", "bush4", "tree", "tree"],
 	"forest": ["tree", "tree", "tree", "bush1", "bush2", "bush3", "bush4"],
-	"ruins": ["rock1", "rock2", "rock3", "rock4"],
-	"deep": ["bush3", "bush4", "rock3", "rock4", "tree"],
+	"ruins": ["rock1", "rock2", "rock3", "rock4", "bone15", "bone09", "bone13"],
+	"deep": ["bush3", "bush4", "rock3", "rock4", "tree", "bone15", "bone09"],
 }
 
 ## Tilemap_Flat 中纯室内地面瓦片（row 1-2 是无边缘的完整地面，row 0/3 是边缘瓦片）
@@ -144,6 +144,9 @@ const DECOR := {
 	"rock2": TS_BASE + "Terrain/Decorations/Rocks/Rock2.png",
 	"rock3": TS_BASE + "Terrain/Decorations/Rocks/Rock3.png",
 	"rock4": TS_BASE + "Terrain/Decorations/Rocks/Rock4.png",
+	"bone15": TS_UPD + "Deco/15.png",  # 骨头点缀
+	"bone09": TS_UPD + "Deco/09.png",  # 碎骨堆
+	"bone13": TS_UPD + "Deco/13.png",  # 残骸
 }
 
 ## 装饰精灵的 cell 大小
@@ -151,6 +154,7 @@ const DECOR_CELL := {
 	"tree": 192,
 	"bush1": 64, "bush2": 64, "bush3": 64, "bush4": 64,
 	"rock1": 64, "rock2": 64, "rock3": 64, "rock4": 64,
+	"bone15": 64, "bone09": 64, "bone13": 64,
 }
 
 ## 网格型精灵的动画帧坐标（col, row 列表）
