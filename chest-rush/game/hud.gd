@@ -244,7 +244,7 @@ func _build_ui() -> void:
 	var up_panel := PanelContainer.new()
 	up_panel.add_theme_stylebox_override("panel", _mk_tex_style(Art.UI_PANEL_9, 64))
 	up_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	up_panel.position = Vector2(-210 * s, -90 * s)
+	up_panel.position = Vector2(-200 * s, -100 * s)
 	up_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(up_panel)
 	var up_vb := VBoxContainer.new()
@@ -362,7 +362,7 @@ func _mk_label(parent: Node, text: String, size: int) -> Label:
 	return l
 
 
-## 9-slice 面板样式：从 tiny-swords UI 纹理创建可拉伸面板
+## 9-slice 面板样式：纹理边框保持 64px 不变形，内容边距只用 4px
 func _mk_tex_style(tex_path: String, border: int) -> StyleBoxTexture:
 	var sb := StyleBoxTexture.new()
 	sb.texture = load(tex_path)
@@ -370,5 +370,6 @@ func _mk_tex_style(tex_path: String, border: int) -> StyleBoxTexture:
 	sb.set_texture_margin(SIDE_RIGHT, border)
 	sb.set_texture_margin(SIDE_TOP, border)
 	sb.set_texture_margin(SIDE_BOTTOM, border)
-	sb.set_expand_margin_all(maxi(2, int(round(4 * _ui_scale))))
+	# 关键：显式设置小内容边距，否则默认=texture_margin(64px) 会导致面板过大
+	sb.set_content_margin_all(maxi(2, int(round(4 * _ui_scale))))
 	return sb
