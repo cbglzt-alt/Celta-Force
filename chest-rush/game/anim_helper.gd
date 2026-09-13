@@ -3,7 +3,7 @@ extends RefCounted
 ## 把 32px 高的水平 spritesheet 组装成多动画 SpriteFrames。
 ## 每个动画一张图，宽÷32 = 帧数。供 enemy/elite 共用，避免重复切帧代码。
 
-const CELL := 32  # 默认每帧 32×32（dungeon 怪物）
+const CELL := 192  # 默认每帧 192×192（tiny-swords 单位精灵）
 
 ## anims: { "idle": "路径.png", ... }；cell = 每帧边长（怪物 32，Soldier 100）
 ## 返回装配好的 AnimatedSprite2D（含全部动画，默认播 idle）。

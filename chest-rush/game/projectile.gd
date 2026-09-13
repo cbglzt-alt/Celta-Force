@@ -24,8 +24,17 @@ func setup(dmg: float, direction: Vector2, rng: float, col: Color) -> void:
 	dir = direction
 	max_range = rng
 	color = col
-	_body.polygon = Player.circle_poly(4.0, 6)
-	_body.color = col
+	# 用 tiny-swords Arrow 精灵替代 Polygon2D（旋转跟随方向）
+	var tex: Texture2D = load(Art.ARROW_SPRITE)
+	if tex != null:
+		_body.visible = false
+		var s := Sprite2D.new()
+		s.texture = tex
+		s.scale = Vector2(0.15, 0.15)  # 箭矢缩小到 ~10px
+		add_child(s)
+	else:
+		_body.polygon = Player.circle_poly(4.0, 6)
+		_body.color = col
 	rotation = dir.angle()
 
 

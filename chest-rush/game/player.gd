@@ -32,17 +32,9 @@ var _anim := "idle"
 func _ready() -> void:
 	hp = max_hp
 	add_to_group("player")
-	# 主角：dungeon priest（驭鬼者，与怪物同风格统一）。只 4 帧 idle（全套动画留待匹配包，见 roadmap）
-	_sprite = AnimatedSprite2D.new()
-	var sf := SpriteFrames.new()
-	sf.add_animation("idle")
-	sf.set_animation_speed("idle", 6.0)
-	sf.set_animation_loop("idle", true)
-	for p in Art.frames_of("player"):
-		sf.add_frame("idle", load(p))
-	_sprite.sprite_frames = sf
-	_sprite.scale = Vector2(2.0, 2.0)
-	_sprite.play("idle")
+	# 主角：Blue Warrior（全套 idle/walk 动画，192px/帧缩放 0.33 → ~64px）
+	var anims := Art.anims_of("player")
+	_sprite = AnimHelper.build_sprite(anims, 8.0, 0.33, Art.UNIT_CELL)
 	_pivot.add_child(_sprite)
 	_make_hp_bar()
 	# 挂 3 只鬼（本关固定装备，来自 LOADOUT 的 .tres）

@@ -22,25 +22,25 @@ func setup(k: Kind, amt: int, fog_ref: Node2D) -> void:
 	kind = k
 	amount = amt
 	fog = fog_ref
-	# 掉落物用 tileset 现成 sprite：金币/蓝瓶(视野)/钥匙(任务)
+	# 掉落物用 tiny-swords sprite：金币/工具/金矿
 	var tex_path := ""
 	match kind:
 		Kind.GOLD:
-			tex_path = "res://assets/tiles/gold.png"
+			tex_path = Art.GOLD_PICKUP
 		Kind.VISION:
-			tex_path = "res://assets/tiles/vision.png"
+			tex_path = Art.VISION_PICKUP
 		Kind.QUEST:
-			tex_path = "res://assets/tiles/quest.png"
-	_body.visible = false  # 隐藏占位色块
+			tex_path = Art.QUEST_PICKUP
+	_body.visible = false
 	var s := Sprite2D.new()
 	s.texture = load(tex_path)
-	s.scale = Vector2(2.0, 2.0)
+	s.scale = Vector2(0.45, 0.45)  # 缩放到 ~32px
 	add_child(s)
 	_visual = s
 	# 呼吸缩放（作用在 sprite 上）
 	var tw := create_tween().set_loops()
-	tw.tween_property(_visual, "scale", Vector2(2.3, 2.3), 0.5).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(_visual, "scale", Vector2(1.8, 1.8), 0.5).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_visual, "scale", Vector2(0.55, 0.55), 0.5).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_visual, "scale", Vector2(0.40, 0.40), 0.5).set_trans(Tween.TRANS_SINE)
 
 
 func _process(_delta: float) -> void:

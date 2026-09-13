@@ -3,38 +3,15 @@ extends Node2D
 ## 解析 ASCII 地图，生成墙、可摧毁物、撤离点、刷怪点。
 ## 图例：# 墙(永久挡视野) o 可摧毁障碍(存活时挡视野) C 宝箱
 ##       E 撤离点 S 刷怪点 P 玩家出生点 . 地板
+## 地图数据由 game.gd 通过 setup_level() 注入；不再硬编码 const MAP。
 
 signal destructible_destroyed(d)
 
 const TILE := 32
 const DestructibleScene := preload("res://game/destructible.tscn")
 
-const MAP: Array[String] = [
-	"########################################",
-	"#P....#....C...#......#....C....#.....E#",
-	"#.....#........#..S....#.........#..S..#",
-	"#..C...#...o....#......#....o....#.....#",
-	"#......#........#..C...#..........#..C.#",
-	"#......#....o...#......##.#####........#",
-	"#..S...#........####.###.......#....o..#",
-	"#......#...C....#......#...C...#.....S.#",
-	"#......#........#..o...#.......#.......#",
-	"###.####...S...#......#....C..#...C....#",
-	"#.....#.........#...C..#o......#.......#",
-	"#..C..#....o....#......#....S..#....o..#",
-	"#.....#.........##.#####.......#.......#",
-	"#.....#....C....#.....o....C...#..C....#",
-	"#.o...#.........#..S......o...#......o.#",
-	"#.....#####.#####..............#....S..#",
-	"#.....#........#....C....S.C..#........#",
-	"#......#...C....#...............#......#",
-	"#..S...#........#....o......C..#....o..#",
-	"#......#....o...#.........#....#.......#",
-	"#......#........#...C.....#..S.####.##.#",
-	"#......####.#####.........#...........E#",
-	"#....o...........C........S......o.....#",
-	"########################################",
-]
+## 当前关卡的 ASCII 地图（由 game.gd 设置）
+var map_data: Array[String] = []
 
 var width: int
 var height: int
@@ -48,7 +25,14 @@ var exits: Array = []           # Dictionary{area, marker, tile, unlocked}
 
 
 func _ready() -> void:
-	_build()
+	# 不自动构建；由 game.gd 调用 setup_level() + build()
+	# 如果 map_data 已被设置（探针等直接调用），则自动构建
+	if not map_data.is_empty():
+		_build()
+
+
+func setup_level(data) -> void:
+	map_data = data.map.duplicate()
 
 
 func world_to_tile(p: Vector2) -> Vector2i:
@@ -74,7 +58,6 @@ func blocks_vision(t: Vector2i) -> bool:
 
 
 ## 房间探测：从某格向四周扩散到墙，返回房间矩形（铺满整个房间）。
-## 供敲门鬼危险区用。center_t 为该格坐标，max_half 为最大半径上限（格数）。
 func room_square(center_t: Vector2i, max_half := 8) -> Rect2i:
 	var left := 0
 	var right := 0
@@ -88,29 +71,26 @@ func room_square(center_t: Vector2i, max_half := 8) -> Rect2i:
 		up += 1
 	while down < max_half and not blocks_vision(center_t + Vector2i(0, down + 1)):
 		down += 1
-	# 铺满整个矩形房间（不截正方形）
 	return Rect2i(center_t - Vector2i(left, up), Vector2i(left + right + 1, up + down + 1))
 
 
 func unlock_exits() -> void:
 	for rec in exits:
 		rec.unlocked = true
-		# 点亮火把：从昏暗转为明亮，并加一圈暖光晕示意"可撤离"
 		rec.marker.modulate = Color(1.3, 1.15, 0.7)
 		var glow := Polygon2D.new()
-		glow.polygon = Player.circle_poly(20.0, 24)
-		glow.color = Color(1.0, 0.8, 0.4, 0.22)
+		glow.polygon = Player.circle_poly(24.0, 24)
+		glow.color = Color(1.0, 0.85, 0.3, 0.22)
 		glow.z_index = -1
 		rec.marker.add_child(glow)
 
 
 func _build() -> void:
-	height = MAP.size()
-	width = MAP[0].length()
-	for row in MAP:
+	height = map_data.size()
+	width = map_data[0].length()
+	for row in map_data:
 		assert(row.length() == width, "地图行宽不一致: %s" % row)
 
-	# 地板：用 dungeon 石板瓦片平铺（替代纯色背景）
 	_build_floor()
 
 	var wall_body := StaticBody2D.new()
@@ -120,7 +100,7 @@ func _build() -> void:
 
 	for y in height:
 		for x in width:
-			var c := MAP[y][x]
+			var c := map_data[y][x]
 			var t := Vector2i(x, y)
 			var center := tile_to_world(t)
 			match c:
@@ -132,7 +112,7 @@ func _build() -> void:
 					cs.shape = shape
 					cs.position = center
 					wall_body.add_child(cs)
-					wall_visual.rects.append(Rect2(Vector2(t) * TILE, Vector2(TILE, TILE)))
+					wall_visual.wall_tiles.append(t)
 				"o", "C":
 					var d = DestructibleScene.instantiate()
 					add_child(d)
@@ -151,10 +131,9 @@ func _build() -> void:
 				"P":
 					player_start = center
 
-	wall_visual.tex = load("res://assets/tiles/wall_top.png")
 	add_child(wall_body)
 	add_child(wall_visual)
-	_build_decor()  # 装饰层：墙面火把 + 地面杂物（纯视觉，不占格不碰撞）
+	_build_decor()
 	assert(not chests.is_empty(), "地图没有宝箱")
 	assert(spawn_points.size() > 0, "地图没有刷怪点")
 	assert(exits.size() >= 2, "撤离点不足 2 个")
@@ -177,10 +156,8 @@ func _build_pathfinding() -> void:
 			var t := Vector2i(x, y)
 			var id := _pid(t)
 			_astar.add_point(id, tile_to_world(t))
-			# 墙、存活障碍、宝箱格均不可通行（碰撞体挡路，绕行而非卡住）
 			if walls.has(t) or chest_tiles.has(t) or (obstacles.get(t) != null and is_instance_valid(obstacles[t])):
 				_astar.set_point_disabled(id, true)
-	# 连接四方向相邻格
 	for y in height:
 		for x in width:
 			var t := Vector2i(x, y)
@@ -191,12 +168,10 @@ func _build_pathfinding() -> void:
 					_astar.connect_points(id, _pid(n))
 
 
-## 障碍被摧毁后开放该格并重算连通
 func notify_walkable_changed(t: Vector2i) -> void:
 	_astar.set_point_disabled(_pid(t), false)
 
 
-## 返回从 from 到 to 的世界坐标路径（含起点），无路径时返回空
 func find_path(from: Vector2, to: Vector2) -> PackedVector2Array:
 	var a := _pid(world_to_tile(from))
 	var b := _pid(world_to_tile(to))
@@ -204,9 +179,6 @@ func find_path(from: Vector2, to: Vector2) -> PackedVector2Array:
 		return PackedVector2Array()
 	var pts := _astar.get_point_path(a, b)
 	return pts
-
-
-const TORCH_SPRITE := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/torch/torch_1.png"
 
 
 func _make_exit(center: Vector2, t: Vector2i) -> Dictionary:
@@ -217,11 +189,11 @@ func _make_exit(center: Vector2, t: Vector2i) -> Dictionary:
 	var shape := RectangleShape2D.new()
 	shape.size = Vector2(TILE - 4, TILE - 4)
 	cs.shape = shape
-	# 撤离门：火把 sprite（熄=锁定暗色，燃=解锁亮起发光）
+	# 撤离点：蓝色塔楼 sprite（暗=锁定，亮=解锁）
 	var marker := Sprite2D.new()
-	marker.texture = load(TORCH_SPRITE)
-	marker.scale = Vector2(2.2, 2.2)
-	marker.modulate = Color(0.35, 0.35, 0.4)  # 锁定：昏暗
+	marker.texture = load(Art.EXIT_SPRITE)
+	marker.scale = Vector2(0.25, 0.25)  # 128x256 → 32x64
+	marker.modulate = Color(0.35, 0.35, 0.4)
 	area.add_child(cs)
 	area.add_child(marker)
 	add_child(area)
@@ -241,124 +213,165 @@ func _on_exit_body(body: Node2D, rec: Dictionary) -> void:
 func _on_destructible_destroyed(d) -> void:
 	if obstacles.get(d.tile) == d:
 		obstacles.erase(d.tile)
-		notify_walkable_changed(d.tile)  # 开放该格，怪物可通行
+		notify_walkable_changed(d.tile)
 	elif chest_tiles.has(d.tile):
 		chest_tiles.erase(d.tile)
-		notify_walkable_changed(d.tile)  # 宝箱开盖/打烂后可通行
+		notify_walkable_changed(d.tile)
 	destructible_destroyed.emit(d)
 
 
-## 装饰层：墙面火把 + 地面杂物。纯视觉，不占格、不碰撞、不影响寻路/视野。
-## 原则：只用"一眼就是环境"的装饰（破砖/碎骨/烛台），禁用道具外形（药水瓶/地刺）以免误导。
-const DECOR_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/"
-## 墙面火把 / 烛台：4 帧动画（烛火摇曳）
-const WALL_TORCH := ["torch/side_torch_1.png", "torch/side_torch_2.png", "torch/side_torch_3.png", "torch/side_torch_4.png"]
-const CANDLE := ["torch/candlestick_2_1.png", "torch/candlestick_2_2.png", "torch/candlestick_2_3.png", "torch/candlestick_2_4.png"]
-## 地面杂物：破砖/碎骨（单帧）
-const FLOOR_PROPS: Array = [
-	["res://assets/tiles/dungeon/skull_and_bone.png"],  # 骷髅头+骨（诡异残骸）
-	["res://assets/tiles/dungeon/bone_shards.png"],     # 两块碎骨
-	["res://assets/tiles/dungeon/debris_a.png"],        # 破砖
-	CANDLE,                                              # 烛台（动画）
-]
-
+## 装饰层：地面树木/灌木/岩石。纯视觉，不占格、不碰撞、不影响寻路/视野。
 func _build_decor() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 20260728  # 固定种子：每次进图装饰布局一致（契合固定关卡设定）
-	for y in height:
-		for x in width:
-			var t := Vector2i(x, y)
-			if not walls.has(t):
-				continue
-			# 墙面火把：这格是墙、且下方是地板（墙脚）→ 在墙脚插火把
-			var below := t + Vector2i(0, 1)
-			if in_bounds(below) and not blocks_vision(below) and rng.randf() < 0.16:
-				_add_sprite(WALL_TORCH, tile_to_world(t) + Vector2(0, 8), 2.0, 5)
-			# 地面杂物：墙格跳过，下面是地板格才撒（稀疏）
+	rng.seed = 20260728
+	var decor_keys: Array[String] = [
+		"tree1", "tree2", "tree3", "tree4",
+		"bush1", "bush2", "bush3",
+		"rock1", "rock2", "rock3", "rock4",
+	]
 	for y in height:
 		for x in width:
 			var t := Vector2i(x, y)
 			if walls.has(t) or obstacles.has(t):
 				continue
-			# 避开关键格（出生点/宝箱/门/刷怪点所在的明确功能格由字符保证非墙非障碍即可）
-			if MAP[y][x] != ".":
+			if map_data[y][x] != ".":
 				continue
-			if rng.randf() < 0.05:
-				var pick: Array = FLOOR_PROPS[rng.randi() % FLOOR_PROPS.size()]
-				_add_sprite(pick, tile_to_world(t) + Vector2(rng.randf_range(-6, 6), rng.randf_range(-6, 6)), 1.8, -5)
+			if rng.randf() < 0.08:
+				var key: String = decor_keys[rng.randi() % decor_keys.size()]
+				_add_ts_decor(key, tile_to_world(t) + Vector2(rng.randf_range(-6, 6), rng.randf_range(-4, 4)), rng)
+	# 墙面装饰：墙脚放岩石（替代旧版火把）
+	for y in height:
+		for x in width:
+			var t := Vector2i(x, y)
+			if not walls.has(t):
+				continue
+			var below := t + Vector2i(0, 1)
+			if in_bounds(below) and not blocks_vision(below) and rng.randf() < 0.10:
+				var key: String = ["rock1", "rock2", "rock3", "rock4"][rng.randi() % 4]
+				_add_ts_decor(key, tile_to_world(t) + Vector2(0, 6), rng)
 
 
-func _add_sprite(frames: Array, pos: Vector2, scale: float, z: int) -> void:
-	# 单帧用 Sprite2D，多帧用 AnimatedSprite2D（烛火/火把摇曳）
-	var s: Node2D
-	if frames.size() > 1:
+## 用 tiny-swords 装饰精灵放置地面/墙面装饰
+func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> void:
+	var path: String = Art.DECOR[key]
+	var cell: int = Art.DECOR_CELL.get(key, 64)
+	var tex: Texture2D = load(path)
+	if tex == null:
+		return
+	var frame_count := int(tex.get_width() / cell) if cell > 0 else 1
+	if frame_count > 1:
+		# 条带动画（树/灌木摇曳）
 		var sf := SpriteFrames.new()
 		sf.add_animation("idle")
 		sf.set_animation_speed("idle", 5.0)
 		sf.set_animation_loop("idle", true)
-		for f in frames:
-			var p: String = f if f.begins_with("res://") else DECOR_DIR + f
-			sf.add_frame("idle", load(p))
-		var anim := AnimatedSprite2D.new()
-		anim.sprite_frames = sf
-		anim.play("idle")
-		s = anim
+		for i in frame_count:
+			sf.add_frame("idle", Art.slice_strip(path, cell, i))
+		var s := AnimatedSprite2D.new()
+		s.sprite_frames = sf
+		s.play("idle")
+		# 树大、灌木中、岩石小
+		var sc := 0.18 if cell >= 256 else (0.25 if cell >= 128 else 0.45)
+		s.scale = Vector2(sc, sc)
+		s.z_index = -5
+		add_child(s)
+		s.global_position = pos
 	else:
-		var sp := Sprite2D.new()
-		var single: String = frames[0]
-		sp.texture = load(single if single.begins_with("res://") else DECOR_DIR + single)
-		s = sp
-	s.scale = Vector2(scale, scale)
-	s.z_index = z
-	add_child(s)
-	s.global_position = pos
+		# 单帧静态（岩石）
+		var s := Sprite2D.new()
+		s.texture = tex
+		s.scale = Vector2(0.45, 0.45)
+		s.z_index = -5
+		add_child(s)
+		s.global_position = pos
 
 
-## 地板：用 dungeon 石板瓦片平铺（放大 2 倍 + 淡网格线），替代纯色背景
+## 地板：用 tiny-swords 草地瓦片平铺（从 Tilemap_Flat 图集取草地变体）
 func _build_floor() -> void:
 	var f := FloorBG.new()
-	f.setup(width, height, TILE, load("res://assets/tiles/floor.png"))
+	f.setup(width, height, TILE, load(Art.FLAT_ATLAS))
 	add_child(f)
 
 
-## 地板：瓦片贴图平铺 + 淡网格
+## 地板：从图集取草地变体平铺 + 淡网格
 class FloorBG extends Node2D:
 	var w: int
 	var h: int
 	var ts: int
-	var tex: Texture2D
+	var atlas: Texture2D
+	var _rng := RandomNumberGenerator.new()
+	var _floor_tiles: Array[Texture2D] = []
 
-	func setup(_w: int, _h: int, _ts: int, _tex: Texture2D) -> void:
+	func setup(_w: int, _h: int, _ts: int, _atlas: Texture2D) -> void:
 		w = _w
 		h = _h
 		ts = _ts
-		tex = _tex
+		atlas = _atlas
 		z_index = -10
+		_rng.seed = 20260728
+		# 预切草地变体（16 种 → 随机选用，增加地面丰富度）
+		if atlas != null:
+			for g in Art.GRASS_TILES:
+				_floor_tiles.append(Art.slice_atlas(Art.FLAT_ATLAS, g.x, g.y, Art.SRC_TILE))
 
 	func _draw() -> void:
-		# 逐格绘制，draw_texture_rect 拉伸 16px 瓦片到 32px 格
 		var cell := Vector2(ts, ts)
-		for y in h:
-			for x in w:
-				draw_texture_rect(tex, Rect2(Vector2(x * ts, y * ts), cell), false)
-		# 淡网格线（保持格子可读性）
-		var line := Color(0, 0, 0, 0.18)
-		for x in w + 1:
-			draw_line(Vector2(x * ts, 0), Vector2(x * ts, h * ts), line)
-		for y in h + 1:
-			draw_line(Vector2(0, y * ts), Vector2(w * ts, y * ts), line)
+		if _floor_tiles.is_empty():
+			# 兜底：纯色草地背景
+			draw_rect(Rect2(0, 0, w * ts, h * ts), Color(0.6, 0.74, 0.31), true)
+		else:
+			for y in h:
+				for x in w:
+					var tex: Texture2D = _floor_tiles[_rng.randi() % _floor_tiles.size()]
+					draw_texture_rect(tex, Rect2(Vector2(x * ts, y * ts), cell), false)
+			# 淡网格线（保持格子可读性）
+			var line := Color(0, 0, 0, 0.10)
+			for x in w + 1:
+				draw_line(Vector2(x * ts, 0), Vector2(x * ts, h * ts), line)
+			for y in h + 1:
+				draw_line(Vector2(0, y * ts), Vector2(w * ts, y * ts), line)
 
 
-## 墙体一次性绘制： dungeon 砖纹瓦片 + 深色描边
+## 墙体一次性绘制：从 Tilemap_Elevation 图集取悬崖瓦片（顶/面/暗面）
 class WallVisual extends Node2D:
-	var rects: Array[Rect2] = []
-	var tex: Texture2D
+	var wall_tiles: Array[Vector2i] = []
+	var _atlas: Texture2D
+	var _wall_top: Texture2D
+	var _wall_face: Texture2D
+	var _wall_dark: Texture2D
+
+	func _ready() -> void:
+		_atlas = load(Art.ELEV_ATLAS)
+		# 预切三种墙瓦片
+		if _atlas != null:
+			_wall_top = Art.slice_atlas(Art.ELEV_ATLAS, 0, 0, Art.SRC_TILE)
+			_wall_face = Art.slice_atlas(Art.ELEV_ATLAS, 0, 1, Art.SRC_TILE)
+			_wall_dark = Art.slice_atlas(Art.ELEV_ATLAS, 0, 3, Art.SRC_TILE)
 
 	func _draw() -> void:
-		for r in rects:
-			if tex:
-				draw_texture_rect(tex, r, false)
-				draw_rect(r, Color(0, 0, 0, 0.25), false, 1.0)  # 勾边分出格子
+		var ts := 32  # 目标瓦片大小
+		var cell := Vector2(ts, ts)
+		for t in wall_tiles:
+			var dest := Rect2(Vector2(t.x * ts, t.y * ts), cell)
+			# 选瓦片：墙下方也是墙 → 用暗面（深处）；否则用正面（悬崖面）
+			var below := Vector2i(t.x, t.y + 1)
+			var is_top: bool = not _is_wall(below)
+			var tex: Texture2D
+			if is_top and _wall_top != null:
+				tex = _wall_top
+			elif not is_top and _wall_dark != null:
+				tex = _wall_dark
 			else:
-				draw_rect(r, Color("#4a3b52"))
-				draw_rect(r, Color("#6b5578"), false, 2.0)
+				tex = _wall_face
+			if tex != null:
+				draw_texture_rect(tex, dest, false)
+			else:
+				draw_rect(dest, Color(0.35, 0.45, 0.45), true)
+			# 描边分出格子
+			draw_rect(dest, Color(0, 0, 0, 0.20), false, 1.0)
+
+	func _is_wall(t: Vector2i) -> bool:
+		for w in wall_tiles:
+			if w == t:
+				return true
+		return false

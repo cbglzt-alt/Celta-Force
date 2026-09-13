@@ -1,22 +1,30 @@
 extends Node2D
 ## 对局编排：输入绑定、轮次刷怪、任务状态、暴走、撤离倒计时、胜负与重开。
+## 多关卡：static current_level 跨场景重载保持关卡索引。
 
 const PlayerScene := preload("res://game/player.tscn")
 const EnemyScene := preload("res://game/enemy.tscn")
 const PickupScene := preload("res://game/pickup.tscn")
 const KnockerScene := preload("res://game/elite_knocker.tscn")
 
+## 当前关卡索引（跨 reload_current_scene 保持）
+static var current_level := 0
+
 @export var quest_target := 3
 @export var round_interval := 22.0
 @export var extract_countdown := 75.0
 @export var upgrade_base_cost := 35
-@export var upgrade_cost_growth := 1.75  # 强化有取舍，不能扫箱满级
+@export var upgrade_cost_growth := 1.75
 @export var upgrade_max_level := 5
-@export var upgrade_attack_mult := 1.45  # 每级全体鬼伤害乘算
+@export var upgrade_attack_mult := 1.45
 @export var upgrade_speed_mult := 1.15
-@export var upgrade_hp_bonus := 70.0    # 每级生命上限
-@export var loot_gold_growth := 1.08    # 破坏物金币随波增速（慢于怪血）
+@export var upgrade_hp_bonus := 70.0
+@export var loot_gold_growth := 1.08
 @export var spawn_radius := 220.0
+
+## 当前关卡名（HUD 读取用）
+var level_name := ""
+var level_total := 0
 
 var level: Node2D
 var fog: Node2D
@@ -53,7 +61,20 @@ var _float_font: Font
 func _ready() -> void:
 	add_to_group("game")
 	_setup_input()
+	# 加载关卡数据
+	var lvl_idx := mini(current_level, LevelDefs.LEVELS.size() - 1)
+	var data = LevelDefs.LEVELS[lvl_idx]
+	level_total = LevelDefs.LEVELS.size()
+	level_name = data.name
+	quest_target = data.quest_target
+	round_interval = data.round_interval
+	extract_countdown = data.extract_countdown
+	spawn_radius = data.spawn_radius
+	_knocker_next_round = data.knocker_first_round
+	# 注入地图数据并构建
 	level = $World/LevelMap
+	level.setup_level(data)
+	level._build()
 	fog = $FogOfWar
 	fog.setup(level)
 	# 玩家
@@ -73,7 +94,7 @@ func _ready() -> void:
 	hud = $HUD
 	hud.setup(self)
 	_float_font = load("res://game/fonts/NotoSansSC-Subset.otf")
-	hud.message("砸开宝箱搜集金币，找到 %d 个任务道具！" % quest_target, 4.0)
+	hud.message("第 %d/%d 关 · %s\n搜集 %d 个任务道具！" % [lvl_idx + 1, level_total, level_name, quest_target], 4.0)
 	# 计时器
 	_round_timer.wait_time = round_interval
 	_round_timer.timeout.connect(_on_round)
@@ -96,6 +117,8 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if over:
+		if event.is_action_pressed("restart"):
+			_restart()
 		return
 	if event.is_action_pressed("use_vision"):
 		_use_vision()
@@ -105,6 +128,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_buy("speed")
 	elif event.is_action_pressed("buy_hp"):
 		_buy("hp")
+
+
+func _restart() -> void:
+	get_tree().paused = false
+	get_tree().reload_current_scene()
 
 
 # ---------- 输入（运行期绑定，避免手改 project.godot） ----------
@@ -338,7 +366,13 @@ func try_extract() -> void:
 func _win() -> void:
 	over = true
 	_extract_timer.stop()
-	hud.show_result(true, "成功撤离！", _stats_text())
+	var is_last := current_level >= LevelDefs.LEVELS.size() - 1
+	if is_last:
+		hud.show_result(true, "全部通关！", _stats_text(), "重新开始 (R)")
+		current_level = 0
+	else:
+		hud.show_result(true, "关卡通过！", _stats_text(), "下一关 (R)")
+		current_level += 1
 	get_tree().paused = true
 
 
@@ -346,7 +380,7 @@ func _lose(reason: String) -> void:
 	if over:
 		return
 	over = true
-	hud.show_result(false, reason, _stats_text())
+	hud.show_result(false, reason, _stats_text(), "重新挑战 (R)")
 	get_tree().paused = true
 
 

@@ -21,12 +21,16 @@ var _alert_tween: Tween
 var _result_panel: ColorRect
 var _result_title: Label
 var _result_stats: Label
+var _result_button: Button
+var _level_label: Label
 
 var _ui_scale := 1.0  # 手机端按物理宽度反放大 UI
 var _pending_message := ""  # UI 构建前收到的消息，构建后重放
 
 
 func _ready() -> void:
+	# 暂停时仍需处理 R 键重启/下一关
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Web 端无系统字体，优先用随包子集字体（Noto Sans SC，OFL 许可）
 	_font = load("res://game/fonts/NotoSansSC-Subset.otf")
 	if _font == null:
@@ -82,6 +86,8 @@ func refresh() -> void:
 	if game == null or game.player == null:
 		return
 	var p = game.player
+	if _level_label != null:
+		_level_label.text = "第 %d/%d 关 · %s" % [game.current_level + 1, game.level_total, game.level_name]
 	_hp_text.text = "HP %d/%d" % [maxi(int(p.hp), 0), int(p.max_hp)]
 	p.refresh_hp_bar()
 	_gold_label.text = "金币 %d" % game.gold
@@ -152,13 +158,16 @@ func set_countdown_visible(v: bool) -> void:
 	_countdown_label.visible = v
 
 
-func show_result(win: bool, title: String, stats: String) -> void:
+func show_result(win: bool, title: String, stats: String, button_text := "重新开始 (R)") -> void:
 	_result_title.text = title
 	_result_title.add_theme_color_override(
 		"font_color", Color("#4ade80") if win else Color("#f87171"))
 	_result_stats.text = stats
 	_countdown_label.visible = false
 	_result_panel.visible = true
+	# 更新按钮文字
+	if _result_button != null:
+		_result_button.text = button_text
 
 
 func _input(event: InputEvent) -> void:
@@ -175,12 +184,14 @@ func _restart() -> void:
 
 func _build_ui() -> void:
 	var s: float = _ui_scale
-	# 左上：HP 数值 / 金币 / 任务（血条在主角头顶）
+	# 左上：关卡名 / HP 数值 / 金币 / 任务（血条在主角头顶）
 	var tl := VBoxContainer.new()
 	tl.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	tl.position = Vector2(14 * s, 10 * s)
 	tl.add_theme_constant_override("separation", int(4 * s))
 	add_child(tl)
+	_level_label = _mk_label(tl, "", 14)
+	_level_label.add_theme_color_override("font_color", Color("#93c5fd"))
 	_hp_text = _mk_label(tl, "HP", 14)
 	_gold_label = _mk_label(tl, "", 16)
 	_gold_label.add_theme_color_override("font_color", Color("#facc15"))
@@ -289,6 +300,7 @@ func _build_result_panel() -> void:
 	btn.add_theme_font_size_override("font_size", maxi(12, int(round(20 * _ui_scale))))
 	btn.pressed.connect(_restart)
 	vb.add_child(btn)
+	_result_button = btn
 
 
 func _refresh_upgrade(track: String, label: String) -> void:

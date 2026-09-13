@@ -24,12 +24,7 @@ var _aura_ring: Polygon2D  # 域常驻范围圈，升级时重算半径
 
 const ProjectileScene := preload("res://game/projectile.tscn")
 
-## 域技能灼烧：flamethrower_1（4 帧，播完即消）
-const FLAME_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/flamethrower/"
-const FLAME_FRAMES: Array[String] = [
-	"flamethrower_1_1.png", "flamethrower_1_2.png",
-	"flamethrower_1_3.png", "flamethrower_1_4.png",
-]
+## 域技能灼烧：tiny-swords Fire 精灵（8 帧条带，播完即消）
 static var _aura_sf: SpriteFrames
 
 
@@ -100,16 +95,17 @@ func _make_sprite(paths: Array[String]) -> AnimatedSprite2D:
 	return s
 
 
-## 鬼 sprite：近战刀鬼（skeleton）带 attack 挥刀动画；其余用 4 帧 idle
+## 鬼 sprite：tiny-swords 单位精灵（缩放 0.18，比主角小一号）。刀鬼带 attack 动画。
 func _make_ghost_sprite(sprite_key: String) -> AnimatedSprite2D:
-	if sprite_key == "enemy":
-		# 刀鬼 skeleton：装配 idle + attack（挥刀）
+	var anims := Art.anims_of(sprite_key)
+	if sprite_key == "enemy" and anims.has("attack"):
+		# 刀鬼：idle + attack（挥刀）
 		return AnimHelper.build_sprite({
-			"idle": Art.ANIM_DIR + "enemies-skeleton1_idle.png",
-			"attack": Art.ANIM_DIR + "enemies-skeleton1_attack.png",
-		}, 9.0, 1.4, 32)
-	# 矢（vampire）/域（skull）等：只 4 帧 idle
-	return _make_sprite(Art.frames_of(sprite_key))
+			"idle": anims["idle"],
+			"attack": anims["attack"],
+		}, 9.0, 0.18, Art.UNIT_CELL)
+	# 矢/域鬼：只 idle
+	return AnimHelper.build_sprite({"idle": anims["idle"]}, 9.0, 0.18, Art.UNIT_CELL)
 
 
 ## 近战攻击时：刀鬼播挥刀动画（朝目标翻转），播完回 idle
@@ -282,8 +278,8 @@ func _spawn_aura_flames(origin: Vector2) -> void:
 	for off in spots:
 		var s := AnimatedSprite2D.new()
 		s.sprite_frames = sf
-		s.scale = Vector2(2.0, 2.0)
-		s.z_index = -1  # 低于默认 0 的怪物/玩家
+		s.scale = Vector2(0.2, 0.2)  # tiny-swords fire 192px → ~38px
+		s.z_index = -1
 		s.z_as_relative = false
 		world.add_child(s)
 		# 略下移，火焰落在脚底而非盖住身躯
@@ -301,11 +297,11 @@ func _aura_frames() -> SpriteFrames:
 		return _aura_sf
 	var sf := SpriteFrames.new()
 	sf.add_animation("burn")
-	sf.set_animation_speed("burn", 10.0)
+	sf.set_animation_speed("burn", 12.0)
 	sf.set_animation_loop("burn", false)
-	# 只用前两帧：后两帧几乎是灰白残点，播完易看成「小白点」
-	for i in 2:
-		var tex: Texture2D = load(FLAME_DIR + FLAME_FRAMES[i])
+	# tiny-swords Fire_01：8 帧 × 192px 条带
+	for i in Art.FIRE_FRAMES:
+		var tex: Texture2D = Art.slice_strip(Art.FIRE_SPRITE, Art.FIRE_CELL, i)
 		if tex:
 			sf.add_frame("burn", tex)
 	_aura_sf = sf

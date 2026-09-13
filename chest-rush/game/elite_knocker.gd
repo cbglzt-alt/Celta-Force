@@ -87,8 +87,8 @@ func _play(name: String) -> void:
 
 func _ready() -> void:
 	add_to_group("enemies")
-	# 敲门鬼：vampire 全套动画（idle/walk/attack/hurt/death），精英大一号
-	_sprite = AnimHelper.build_sprite(Art.anims_of("vampire"), 9.0, 2.4)
+	# 敲门鬼：Purple Warrior 全套动画，精英大一号（0.4 缩放）
+	_sprite = AnimHelper.build_sprite(Art.anims_of("vampire"), 9.0, 0.4, Art.UNIT_CELL)
 	add_child(_sprite)
 	_body.visible = false
 	# 精英常驻血条（Boss 级存在感）
@@ -537,7 +537,7 @@ func take_damage(n: float, from_pos: Vector2, color := Color(1, 1, 1)) -> void:
 			_hurt_lock = _sprite.sprite_frames.get_frame_count("hurt") / _sprite.sprite_frames.get_animation_speed("hurt")
 
 
-## 死亡：播 death 动画，播完再销毁（保留门框/危险区清理）
+## 死亡：有 death 动画则播完再销毁，无则淡出后销毁（保留门框/危险区清理）
 func _die() -> void:
 	alive = false
 	_attacking = false
@@ -554,8 +554,13 @@ func _die() -> void:
 	if bg:
 		bg.visible = false
 	died.emit(global_position, gold_drop)
-	_play("death")
-	await _sprite.animation_finished
+	if _sprite.sprite_frames and _sprite.sprite_frames.has_animation("death"):
+		_play("death")
+		await _sprite.animation_finished
+	else:
+		var tw := create_tween()
+		tw.tween_property(_sprite, "modulate:a", 0.0, 0.5)
+		await tw.finished
 	call_deferred("queue_free")
 
 

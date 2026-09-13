@@ -78,6 +78,6 @@ func _draw() -> void:
 		for x in _w:
 			var s: int = _states[y * _w + x]
 			if s == UNSEEN:
-				draw_rect(Rect2(x * ts, y * ts, ts, ts), Color(0, 0, 0, 1))
+				draw_rect(Rect2(x * ts, y * ts, ts, ts), Color(0.03, 0.04, 0.08, 1.0))
 			elif s == SEEN:
-				draw_rect(Rect2(x * ts, y * ts, ts, ts), Color(0, 0, 0, 0.55))
+				draw_rect(Rect2(x * ts, y * ts, ts, ts), Color(0.03, 0.04, 0.08, 0.45))

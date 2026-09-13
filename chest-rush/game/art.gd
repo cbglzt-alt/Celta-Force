@@ -1,148 +1,210 @@
 class_name Art
 extends RefCounted
-## 素材注册表：dark 系像素资源（dungeon-assetpuck）路径与瓦片坐标集中管理。
-## 16×16 瓦片 / 16×16 单帧角色（4 帧 idle 动画）。改素材只改这里。
+## Tiny-Swords 素材注册表。
+## 单位精灵条带 192px/帧；瓦片图集 64px/格（渲染时缩放到 32px）。
+## 改素材只改这里。
 
-const TILESET := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/character and tileset/Dungeon_Tileset.png"
-const CHAR_ANIM := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/Character_animation/"
+const TS_BASE := "res://assets/tiny-swords/Tiny Swords (Free Pack)/"
+const TS_UPD := "res://assets/tiny-swords/Tiny Swords (Update 010)/"
 
-# 角色 sprite 单帧路径（各 4 帧 idle：_1.._4）
-const FRAMES := {
-	"player": "priests_idle/priest1/v1/priest1_v1_%d.png",
-	"enemy": "monsters_idle/skeleton1/v1/skeleton_v1_%d.png",     # 鬼奴杂兵
-	"ghost_domain": "monsters_idle/skull/v1/skull_v1_%d.png",     # 域（己方范围鬼）
-	"elite": "monsters_idle/vampire/v1/vampire_v1_%d.png",        # 精英/敲门鬼气质
-}
+const UNIT_CELL := 192  # tiny-swords 单位精灵每帧边长
 
+## 瓦片图集源瓦片大小（64px），渲染时缩放到 TILE=32
+const SRC_TILE := 64
 
-static func frame(key: String, i: int) -> String:
-	return CHAR_ANIM + FRAMES[key] % clampi(i, 1, 4)
+# ---- 瓦片图集路径 ----
+const FLAT_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Flat.png"       # 640×256 = 10×4 草地/沙土
+const ELEV_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Elevation.png"   # 256×512 = 4×8 悬崖/墙体
 
+## Tilemap_Flat 中草地瓦片的网格坐标（列 0-3），用于地面随机变体
+const GRASS_TILES: Array[Vector2i] = [
+	Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0),
+	Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1),
+	Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2), Vector2i(3, 2),
+	Vector2i(0, 3), Vector2i(1, 3), Vector2i(2, 3), Vector2i(3, 3),
+]
 
-static func frames_of(key: String) -> Array[String]:
-	return [frame(key, 1), frame(key, 2), frame(key, 3), frame(key, 4)]
+## Tilemap_Flat 中沙土/路径瓦片的网格坐标（列 5-8）
+const DIRT_TILES: Array[Vector2i] = [
+	Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0), Vector2i(8, 0),
+	Vector2i(5, 1), Vector2i(6, 1), Vector2i(7, 1), Vector2i(8, 1),
+]
 
+## Tilemap_Elevation 中悬崖顶部瓦片（草地覆盖的墙顶）
+const WALL_TOP_TILES: Array[Vector2i] = [
+	Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0),
+]
 
-## Enemy_Animations_Set：怪物全套动画 spritesheet 目录（32px/帧）
-const ANIM_DIR := "res://assets/dungeon-assetpuck/Enemy_Animations_Set/"
+## Tilemap_Elevation 中悬崖正面瓦片（浅色）
+const WALL_FACE_TILES: Array[Vector2i] = [
+	Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1),
+	Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2), Vector2i(3, 2),
+]
 
+## Tilemap_Elevation 中深色悬崖正面瓦片
+const WALL_DARK_TILES: Array[Vector2i] = [
+	Vector2i(0, 3), Vector2i(1, 3), Vector2i(2, 3), Vector2i(3, 3),
+]
 
-## 某怪物的全套动画表（idle/walk/attack/hurt/death → spritesheet 路径）
-## name 形如 "skeleton1" / "skeleton2" / "vampire"；skeleton2 的移动图名缺字母（源文件如此）
+## Tilemap_Elevation 中深色阴影/底边瓦片
+const WALL_BOTTOM_TILES: Array[Vector2i] = [
+	Vector2i(0, 7), Vector2i(2, 7), Vector2i(3, 7),
+]
+
+# ---- 单位精灵路径 ----
+
+## 全套动画路径（idle/walk/attack）。name 兼容旧调用：skeleton1/vampire/player 等。
 static func anims_of(name: String) -> Dictionary:
-	var move_file := "enemies-%s_movement.png" % name
-	if name == "skeleton2":
-		move_file = "enemies-skeleton2_movemen.png"
-	return {
-		"idle": ANIM_DIR + "enemies-%s_idle.png" % name,
-		"walk": ANIM_DIR + move_file,
-		"attack": ANIM_DIR + "enemies-%s_attack.png" % name,
-		"hurt": ANIM_DIR + "enemies-%s_take_damage.png" % name,
-		"death": ANIM_DIR + "enemies-%s_death.png" % name,
-	}
+	match name:
+		"player", "enemy", "skeleton1":
+			# Blue/Red Warrior（玩家/杂兵/刀鬼共用 Warrior 系列）
+			var prefix := "Red Units" if name != "player" else "Blue Units"
+			return {
+				"idle": TS_BASE + "Units/%s/Warrior/Warrior_Idle.png" % prefix,
+				"walk": TS_BASE + "Units/%s/Warrior/Warrior_Run.png" % prefix,
+				"attack": TS_BASE + "Units/%s/Warrior/Warrior_Attack1.png" % prefix,
+			}
+		"vampire":
+			# Purple Warrior（精英敲门鬼）
+			return {
+				"idle": TS_BASE + "Units/Purple Units/Warrior/Warrior_Idle.png",
+				"walk": TS_BASE + "Units/Purple Units/Warrior/Warrior_Run.png",
+				"attack": TS_BASE + "Units/Purple Units/Warrior/Warrior_Attack1.png",
+			}
+		"ghost_domain":
+			# Blue Monk（域/范围鬼）
+			return {
+				"idle": TS_BASE + "Units/Blue Units/Monk/Idle.png",
+				"walk": TS_BASE + "Units/Blue Units/Monk/Run.png",
+			}
+		"elite":
+			# Red Archer（矢/远程鬼）
+			return {
+				"idle": TS_BASE + "Units/Red Units/Archer/Archer_Idle.png",
+				"walk": TS_BASE + "Units/Red Units/Archer/Archer_Run.png",
+				"attack": TS_BASE + "Units/Red Units/Archer/Archer_Shoot.png",
+			}
+	return {}
 
 
-## dungeon 瓦片集（tiles/dungeon/，由 Dungeon_Tileset.png 10x10 切好的独立 PNG）
-## 名字 → 文件路径。用 tile(name) 取用。源自 manifest.json（92 个独立瓦片）。
-const TILES := {
-	"wall_corner_outer_tl": "res://assets/tiles/dungeon/wall_corner_outer_tl.png",
-	"wall_top_a": "res://assets/tiles/dungeon/wall_top_a.png",
-	"wall_top_b": "res://assets/tiles/dungeon/wall_top_b.png",
-	"wall_top_c": "res://assets/tiles/dungeon/wall_top_c.png",
-	"wall_corner_outer_tr": "res://assets/tiles/dungeon/wall_corner_outer_tr.png",
-	"floor_border_tl": "res://assets/tiles/dungeon/floor_border_tl.png",
-	"floor_border_t_a": "res://assets/tiles/dungeon/floor_border_t_a.png",
-	"floor_border_t_b": "res://assets/tiles/dungeon/floor_border_t_b.png",
-	"floor_border_tr": "res://assets/tiles/dungeon/floor_border_tr.png",
-	"wall_side_l": "res://assets/tiles/dungeon/wall_side_l.png",
-	"wall_face_a": "res://assets/tiles/dungeon/wall_face_a.png",
-	"wall_face_b": "res://assets/tiles/dungeon/wall_face_b.png",
-	"wall_face_c": "res://assets/tiles/dungeon/wall_face_c.png",
-	"wall_face_d": "res://assets/tiles/dungeon/wall_face_d.png",
-	"wall_side_r": "res://assets/tiles/dungeon/wall_side_r.png",
-	"floor_border_l_a": "res://assets/tiles/dungeon/floor_border_l_a.png",
-	"floor_a": "res://assets/tiles/dungeon/floor_a.png",
-	"floor_b": "res://assets/tiles/dungeon/floor_b.png",
-	"floor_border_r_a": "res://assets/tiles/dungeon/floor_border_r_a.png",
-	"wall_mid_l": "res://assets/tiles/dungeon/wall_mid_l.png",
-	"wall_inner_corner_tl": "res://assets/tiles/dungeon/wall_inner_corner_tl.png",
-	"wall_inner_corner_tr": "res://assets/tiles/dungeon/wall_inner_corner_tr.png",
-	"wall_mid_r": "res://assets/tiles/dungeon/wall_mid_r.png",
-	"floor_border_l_b": "res://assets/tiles/dungeon/floor_border_l_b.png",
-	"floor_e": "res://assets/tiles/dungeon/floor_e.png",
-	"floor_f": "res://assets/tiles/dungeon/floor_f.png",
-	"floor_border_r_b": "res://assets/tiles/dungeon/floor_border_r_b.png",
-	"wall_inner_corner_bl": "res://assets/tiles/dungeon/wall_inner_corner_bl.png",
-	"wall_inner_bottom_a": "res://assets/tiles/dungeon/wall_inner_bottom_a.png",
-	"wall_inner_bottom_b": "res://assets/tiles/dungeon/wall_inner_bottom_b.png",
-	"wall_inner_corner_br": "res://assets/tiles/dungeon/wall_inner_corner_br.png",
-	"door_closed_tl": "res://assets/tiles/dungeon/door_closed_tl.png",
-	"door_closed_tr": "res://assets/tiles/dungeon/door_closed_tr.png",
-	"floor_g": "res://assets/tiles/dungeon/floor_g.png",
-	"ladder": "res://assets/tiles/dungeon/ladder.png",
-	"wall_corner_outer_bl": "res://assets/tiles/dungeon/wall_corner_outer_bl.png",
-	"wall_bottom_a": "res://assets/tiles/dungeon/wall_bottom_a.png",
-	"wall_bottom_b": "res://assets/tiles/dungeon/wall_bottom_b.png",
-	"wall_corner_outer_br": "res://assets/tiles/dungeon/wall_corner_outer_br.png",
-	"beam_vertical_a": "res://assets/tiles/dungeon/beam_vertical_a.png",
-	"beam_vertical_b": "res://assets/tiles/dungeon/beam_vertical_b.png",
-	"beam_vertical_c": "res://assets/tiles/dungeon/beam_vertical_c.png",
-	"crate_stack": "res://assets/tiles/dungeon/crate_stack.png",
-	"wall_ledge_l": "res://assets/tiles/dungeon/wall_ledge_l.png",
-	"wall_ledge_a": "res://assets/tiles/dungeon/wall_ledge_a.png",
-	"wall_ledge_b": "res://assets/tiles/dungeon/wall_ledge_b.png",
-	"wall_ledge_r": "res://assets/tiles/dungeon/wall_ledge_r.png",
-	"debris_a": "res://assets/tiles/dungeon/debris_a.png",
-	"debris_b": "res://assets/tiles/dungeon/debris_b.png",
-	"door_closed_bl": "res://assets/tiles/dungeon/door_closed_bl.png",
-	"door_closed_br": "res://assets/tiles/dungeon/door_closed_br.png",
-	"beam_stump": "res://assets/tiles/dungeon/beam_stump.png",
-	"rubble_stones": "res://assets/tiles/dungeon/rubble_stones.png",
-	"floor_room_a": "res://assets/tiles/dungeon/floor_room_a.png",
-	"floor_room_b": "res://assets/tiles/dungeon/floor_room_b.png",
-	"floor_room_c": "res://assets/tiles/dungeon/floor_room_c.png",
-	"floor_room_d": "res://assets/tiles/dungeon/floor_room_d.png",
-	"debris_c": "res://assets/tiles/dungeon/debris_c.png",
-	"debris_d": "res://assets/tiles/dungeon/debris_d.png",
-	"door_open_l": "res://assets/tiles/dungeon/door_open_l.png",
-	"door_open_r": "res://assets/tiles/dungeon/door_open_r.png",
-	"bone_shards": "res://assets/tiles/dungeon/bone_shards.png",
-	"rubble": "res://assets/tiles/dungeon/rubble.png",
-	"floor_border_bl": "res://assets/tiles/dungeon/floor_border_bl.png",
-	"floor_border_b_a": "res://assets/tiles/dungeon/floor_border_b_a.png",
-	"floor_border_b_b": "res://assets/tiles/dungeon/floor_border_b_b.png",
-	"floor_border_br": "res://assets/tiles/dungeon/floor_border_br.png",
-	"banner": "res://assets/tiles/dungeon/banner.png",
-	"bone_b": "res://assets/tiles/dungeon/bone_b.png",
-	"bone_c": "res://assets/tiles/dungeon/bone_c.png",
-	"skull_and_bone": "res://assets/tiles/dungeon/skull_and_bone.png",
-	"void": "res://assets/tiles/dungeon/void.png",
-	"chest_wood_closed": "res://assets/tiles/dungeon/chest_wood_closed.png",
-	"chest_wood_open": "res://assets/tiles/dungeon/chest_wood_open.png",
-	"chest_wood_looted": "res://assets/tiles/dungeon/chest_wood_looted.png",
-	"chest_metal_closed": "res://assets/tiles/dungeon/chest_metal_closed.png",
-	"chest_metal_open": "res://assets/tiles/dungeon/chest_metal_open.png",
-	"chest_metal_looted": "res://assets/tiles/dungeon/chest_metal_looted.png",
-	"coin_gold": "res://assets/tiles/dungeon/coin_gold.png",
-	"potion_blue_a": "res://assets/tiles/dungeon/potion_blue_a.png",
-	"key_silver": "res://assets/tiles/dungeon/key_silver.png",
-	"potion_red_a": "res://assets/tiles/dungeon/potion_red_a.png",
-	"torch_wall_lit_a": "res://assets/tiles/dungeon/torch_wall_lit_a.png",
-	"torch_wall_lit_b": "res://assets/tiles/dungeon/torch_wall_lit_b.png",
-	"torch_wall_unlit": "res://assets/tiles/dungeon/torch_wall_unlit.png",
-	"candelabra_lit_tall": "res://assets/tiles/dungeon/candelabra_lit_tall.png",
-	"candelabra_unlit_tall": "res://assets/tiles/dungeon/candelabra_unlit_tall.png",
-	"candelabra_lit_short": "res://assets/tiles/dungeon/candelabra_lit_short.png",
-	"candelabra_unlit_short": "res://assets/tiles/dungeon/candelabra_unlit_short.png",
-	"potion_blue_b": "res://assets/tiles/dungeon/potion_blue_b.png",
-	"potion_red_b": "res://assets/tiles/dungeon/potion_red_b.png",
-	"key_gold": "res://assets/tiles/dungeon/key_gold.png",
+## 单个 idle 动画路径（兼容旧 frames_of 调用，返回单元素数组）
+static func frames_of(key: String) -> Array[String]:
+	var d := anims_of(key)
+	if d.has("idle"):
+		return [d["idle"]]
+	return []
+
+
+## 取某动画的 spritesheet 路径
+static func unit_sheet(key: String, anim: String) -> String:
+	var d := anims_of(key)
+	return d.get(anim, "")
+
+
+## 兼容旧接口：FRAMES 列出有效 sprite_key（weapon.gd 检查用）
+const FRAMES := {
+	"player": true,
+	"enemy": true,
+	"ghost_domain": true,
+	"elite": true,
 }
 
 
-## 按名取瓦片路径；不存在返回空串并告警
+# ---- 装饰 / 道具 / 特效 / UI 路径 ----
+
+const DECOR := {
+	"tree1": TS_BASE + "Terrain/Resources/Wood/Trees/Tree1.png",
+	"tree2": TS_BASE + "Terrain/Resources/Wood/Trees/Tree2.png",
+	"tree3": TS_BASE + "Terrain/Resources/Wood/Trees/Tree3.png",
+	"tree4": TS_BASE + "Terrain/Resources/Wood/Trees/Tree4.png",
+	"bush1": TS_BASE + "Terrain/Decorations/Bushes/Bushe1.png",
+	"bush2": TS_BASE + "Terrain/Decorations/Bushes/Bushe2.png",
+	"bush3": TS_BASE + "Terrain/Decorations/Bushes/Bushe3.png",
+	"rock1": TS_BASE + "Terrain/Decorations/Rocks/Rock1.png",
+	"rock2": TS_BASE + "Terrain/Decorations/Rocks/Rock2.png",
+	"rock3": TS_BASE + "Terrain/Decorations/Rocks/Rock3.png",
+	"rock4": TS_BASE + "Terrain/Decorations/Rocks/Rock4.png",
+}
+
+## 装饰精灵的 cell 大小（树/灌木是条带，岩石是单帧）
+const DECOR_CELL := {
+	"tree1": 256, "tree2": 256, "tree3": 256, "tree4": 256,
+	"bush1": 128, "bush2": 128, "bush3": 128,
+	"rock1": 64, "rock2": 64, "rock3": 64, "rock4": 64,
+}
+
+## 火焰特效（域武器光环）
+const FIRE_SPRITE := TS_BASE + "Particle FX/Fire_01.png"
+const FIRE_CELL := 192  # 1536x192 = 8 frames
+const FIRE_FRAMES := 8
+
+## 尘土特效（敌人死亡）
+const DUST_SPRITE := TS_BASE + "Particle FX/Dust_01.png"
+const DUST_CELL := 64  # 512x64 = 8 frames
+
+## 爆炸特效（宝箱开启）
+const EXPLOSION_SPRITE := TS_BASE + "Particle FX/Explosion_01.png"
+const EXPLOSION_CELL := 192
+
+## 投射物（矢）
+const ARROW_SPRITE := TS_BASE + "Units/Red Units/Archer/Arrow.png"
+
+## 宝箱/障碍物
+const CHEST_SPRITE := TS_UPD + "Resources/Gold Mine/GoldMine_Active.png"
+const CHEST_OPEN_SPRITE := TS_UPD + "Resources/Gold Mine/GoldMine_Inactive.png"
+const OBSTACLE_SPRITE := TS_BASE + "Terrain/Decorations/Rocks/Rock1.png"
+
+## 拾取物
+const GOLD_PICKUP := TS_BASE + "Terrain/Resources/Gold/Gold Stones/Gold Stone 1.png"
+const VISION_PICKUP := TS_BASE + "Terrain/Resources/Tools/Tool_01.png"
+const QUEST_PICKUP := TS_BASE + "Terrain/Resources/Gold/Gold Resource/Gold_Resource.png"
+
+## 撤离点标记
+const EXIT_SPRITE := TS_BASE + "Buildings/Blue Buildings/Tower.png"
+
+## UI 元素
+const UI_DIR := TS_BASE + "UI Elements/UI Elements/"
+const UI_SMALLBAR_BASE := UI_DIR + "Bars/SmallBar_Base.png"
+const UI_SMALLBAR_FILL := UI_DIR + "Bars/SmallBar_Fill.png"
+const UI_BUTTON_BLUE := UI_DIR + "Buttons/BigBlueButton_Regular.png"
+const UI_BUTTON_RED := UI_DIR + "Buttons/BigRedButton_Regular.png"
+const UI_BANNER := UI_DIR + "Banners/Banner.png"
+const UI_WOOD_TABLE := UI_DIR + "Wood Table/WoodTable.png"
+
+## 死亡精灵（通用倒地）
+const DEAD_SPRITE := TS_UPD + "Factions/Knights/Troops/Dead/Dead.png"
+
+
+# ---- 旧 TILES 兼容（level_map 等暂用 tile(name) 的地方返回空串即可） ----
 static func tile(name: String) -> String:
-	if TILES.has(name):
-		return TILES[name]
-	push_warning("Art.tile: 未知瓦片名 " + name)
 	return ""
+
+
+## 从图集中切片为独立 Texture2D
+static func slice_atlas(atlas_path: String, grid_x: int, grid_y: int, cell: int) -> Texture2D:
+	var tex: Texture2D = load(atlas_path)
+	if tex == null:
+		return null
+	var img := tex.get_image()
+	var sub := Image.create(cell, cell, false, Image.FORMAT_RGBA8)
+	sub.blit_rect(img, Rect2i(grid_x * cell, grid_y * cell, cell, cell), Vector2i.ZERO)
+	return ImageTexture.create_from_image(sub)
+
+
+## 从水平条带切片第 i 帧为 Texture2D
+static func slice_strip(strip_path: String, cell: int, frame_idx: int) -> Texture2D:
+	var tex: Texture2D = load(strip_path)
+	if tex == null:
+		return null
+	var img := tex.get_image()
+	var sub := Image.create(cell, cell, false, Image.FORMAT_RGBA8)
+	sub.blit_rect(img, Rect2i(frame_idx * cell, 0, cell, cell), Vector2i.ZERO)
+	return ImageTexture.create_from_image(sub)
+
+
+## 条带总帧数
+static func strip_frame_count(strip_path: String, cell: int) -> int:
+	var tex: Texture2D = load(strip_path)
+	if tex == null:
+		return 0
+	return int(tex.get_width() / cell)

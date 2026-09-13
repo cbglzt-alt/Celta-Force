@@ -8,13 +8,10 @@ signal destroyed(d)
 
 enum Kind { OBSTACLE, CHEST }
 
-const TRAP_DIR := "res://assets/dungeon-assetpuck/2D Pixel Dungeon Asset Pack/items and trap_animation/"
-## 障碍物：mini_chest 小宝箱（closed 4帧 + open 4帧，统一形象不用随机 box）
-const OBSTACLE_CLOSED := ["mini_chest/mini_chest_1.png", "mini_chest/mini_chest_2.png", "mini_chest/mini_chest_3.png", "mini_chest/mini_chest_4.png"]
-const OBSTACLE_OPEN := ["mini_chest/mini_chest_open_1.png", "mini_chest/mini_chest_open_2.png", "mini_chest/mini_chest_open_3.png", "mini_chest/mini_chest_open_4.png"]
-## 宝箱：关闭动画 + 打开动画（最明显的 chest 系列）
-const CHEST_CLOSED := ["chest/chest_1.png", "chest/chest_2.png", "chest/chest_3.png", "chest/chest_4.png"]
-const CHEST_OPEN := ["chest/chest_open_1.png", "chest/chest_open_2.png", "chest/chest_open_3.png", "chest/chest_open_4.png"]
+## 宝箱/障碍精灵路径（tiny-swords）
+const CHEST_TEX := Art.CHEST_SPRITE        # Gold Mine（活跃）
+const CHEST_OPEN_TEX := Art.CHEST_OPEN_SPRITE  # Gold Mine（枯竭）
+const OBSTACLE_TEX := Art.OBSTACLE_SPRITE   # Rock
 
 @export var obstacle_hp := 90.0
 @export var chest_open_time := 3.5  # 贴近读条秒数
@@ -43,24 +40,24 @@ var _sprite: AnimatedSprite2D
 func setup(k: Kind, t: Vector2i) -> void:
 	kind = k
 	tile = t
-	_body.visible = false  # 隐藏占位色块，用多帧动画
+	_body.visible = false
+	# 宝箱用 Gold Mine 精灵，障碍用 Rock 精灵（静态 Sprite2D）
 	_sprite = AnimatedSprite2D.new()
-	_sprite.scale = Vector2(2.0, 2.0)
+	_sprite.scale = Vector2(0.5, 0.5)  # 缩放到 ~32-64px（≈1-2 格）
 	var sf := SpriteFrames.new()
 	sf.add_animation("idle")
-	sf.set_animation_speed("idle", 5.0)
+	sf.set_animation_speed("idle", 1.0)
 	sf.set_animation_loop("idle", true)
-	var frames: Array
-	if kind == Kind.OBSTACLE:
-		hp = obstacle_hp
-		frames = OBSTACLE_CLOSED  # 障碍统一 mini_chest 小宝箱
-	else:
-		frames = CHEST_CLOSED
-	for f in frames:
-		sf.add_frame("idle", load(TRAP_DIR + f))
+	var tex_path: String = OBSTACLE_TEX if k == Kind.OBSTACLE else CHEST_TEX
+	var tex: Texture2D = load(tex_path)
+	if tex:
+		sf.add_frame("idle", tex)
 	_sprite.sprite_frames = sf
 	_sprite.play("idle")
 	add_child(_sprite)
+	# 障碍血量
+	if k == Kind.OBSTACLE:
+		hp = obstacle_hp
 
 
 ## 宝箱贴近读条
@@ -132,22 +129,19 @@ func _open() -> void:
 
 func _play_open() -> void:
 	_opened = true
-	set_process(false)  # 停止读条检测
-	_clear_bar()  # 清理读条（连根销毁，不残留）
-	var sf := SpriteFrames.new()
-	sf.add_animation("open")
-	sf.set_animation_speed("open", 8.0)
-	sf.set_animation_loop("open", false)
-	for f in CHEST_OPEN:
-		sf.add_frame("open", load(TRAP_DIR + f))
-	_sprite.sprite_frames = sf
-	_sprite.play("open")
-	# 播完掉落物，宝箱定格在 open 最后一帧（开盖亮金光），留原地不销毁
+	set_process(false)
+	_clear_bar()
+	# 切换为打开状态精灵 + 弹跳 tween
+	var open_tex: Texture2D = load(CHEST_OPEN_TEX)
+	if open_tex and _sprite.sprite_frames:
+		_sprite.sprite_frames.clear("idle")
+		_sprite.sprite_frames.add_frame("idle", open_tex)
+		_sprite.play("idle")
+	var tw := create_tween()
+	tw.tween_property(_sprite, "scale", Vector2(0.6, 0.6), 0.15).set_trans(Tween.TRANS_BACK)
+	tw.tween_property(_sprite, "scale", Vector2(0.5, 0.5), 0.1)
 	destroyed.emit(self)
-	await _sprite.animation_finished
-	_sprite.stop()
-	_sprite.frame = CHEST_OPEN.size() - 1  # 定格开盖亮金光的最后一帧
-	# 关闭碰撞，玩家可走过（不再是障碍/索敌目标/视野遮挡）
+	await tw.finished
 	$CollisionShape2D.set_deferred("disabled", true)
 	remove_from_group("destructibles")
 
@@ -165,22 +159,16 @@ func take_damage(n: float, _from_pos := Vector2.ZERO, color := Color(1, 1, 1)) -
 		_break_open()  # 打烂：播 open 留存（开盖/碎裂可走过），不销毁
 
 
-## 障碍物被打烂：播开盖/碎裂动画，留原地成破损状态（不碰撞可走过），掉少量金币
 func _break_open() -> void:
 	_opened = true
 	set_process(false)
-	var sf := SpriteFrames.new()
-	sf.add_animation("open")
-	sf.set_animation_speed("open", 8.0)
-	sf.set_animation_loop("open", false)
-	# 障碍箱的"开"：播它的后几帧（破损/塌陷感），用同一组帧的倒放即可
-	var frames: Array = OBSTACLE_OPEN  # 打烂播 open 帧（开盖）
-	for f in frames:
-		sf.add_frame("open", load(TRAP_DIR + f))
-	_sprite.sprite_frames = sf
-	_sprite.play("open")
-	_sprite.modulate = Color(0.6, 0.55, 0.6)  # 变暗示意已破损
+	# 障碍被打烂：变暗 + 缩小塌陷 tween
 	destroyed.emit(self)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(_sprite, "modulate", Color(0.5, 0.45, 0.5), 0.2)
+	tw.tween_property(_sprite, "scale", Vector2(0.35, 0.35), 0.2)
+	await tw.finished
 	$CollisionShape2D.set_deferred("disabled", true)
 	remove_from_group("destructibles")
 

@@ -40,8 +40,8 @@ var _dying := false
 
 func _ready() -> void:
 	add_to_group("enemies")
-	# 鬼奴：skeleton1 全套动画（idle/walk/attack/hurt/death）
-	_sprite = AnimHelper.build_sprite(Art.anims_of("skeleton1"), 9.0, 2.0)
+	# 鬼奴：Red Warrior 全套动画（idle/walk/attack），192px/帧缩放 0.33
+	_sprite = AnimHelper.build_sprite(Art.anims_of("skeleton1"), 9.0, 0.33, Art.UNIT_CELL)
 	add_child(_sprite)
 	_body.visible = false
 	_make_hp_bar()
@@ -224,18 +224,24 @@ func take_damage(n: float, from_pos: Vector2, color := Color(1, 1, 1)) -> void:
 		_play("hurt")  # 受击后仰（未在挥刀时）
 
 
-## 死亡：播 death 动画，播完再销毁（不再瞬移消失）
+## 死亡：有 death 动画则播完再销毁，无则淡出后销毁
 func _die() -> void:
 	_dying = true
-	set_physics_process(false)  # 停止移动/寻路/伤害
+	set_physics_process(false)
 	set_deferred("monitoring", false)
 	$CollisionShape2D.set_deferred("disabled", true)
 	var bg := get_node_or_null("HpBarBg")
 	if bg:
 		bg.visible = false
 	died.emit(global_position, gold_drop)
-	_play("death")
-	await _sprite.animation_finished
+	if _sprite.sprite_frames and _sprite.sprite_frames.has_animation("death"):
+		_play("death")
+		await _sprite.animation_finished
+	else:
+		# 无 death 动画：淡出
+		var tw := create_tween()
+		tw.tween_property(_sprite, "modulate:a", 0.0, 0.4)
+		await tw.finished
 	call_deferred("queue_free")
 
 
