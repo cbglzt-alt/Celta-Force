@@ -277,7 +277,7 @@ func _make_house(center: Vector2, _t: Vector2i) -> void:
 	# 房屋精灵（128×192 缩放 0.5 = 64×96px，底部对齐格子底边）
 	var idx := randi() % Art.HOUSE_VARIANTS.size()
 	var sprite := Sprite2D.new()
-	sprite.texture = load(Art.HOUSE_DIR + Art.HOUSE_VARIANTS[idx])
+	sprite.texture = load(Art.HOUSE_VARIANTS[idx])
 	sprite.scale = Vector2(0.5, 0.5)
 	sprite.offset = Vector2(0, -32)  # 上移使底部对齐格底
 	sprite.z_index = 1  # 在玩家(0)之上，玩家可"走到房屋后面"

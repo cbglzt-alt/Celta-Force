@@ -204,10 +204,30 @@ const WATER_SPRITE := TS_UPD + "Terrain/Water/Water.png"  # 64×64 单帧
 const BRIDGE_SPRITE := TS_UPD + "Terrain/Bridge/Bridge_All.png"  # 192×256 = 3×4 grid 64px
 const FOAM_SPRITE := TS_UPD + "Terrain/Water/Foam/Foam.png"  # 1536×192 水花条带
 
-## 房屋精灵（128×192，5 色变体）
+## 房屋精灵（128×192，多色多型）
 const HOUSE_DIR := TS_UPD + "Factions/Knights/Buildings/House/"
+const HOUSE_FREE_DIR := TS_BASE + "Buildings/"
+## 所有房屋变体路径（House1/2/3 × 5色 + Update 010 4色 = 19种）
 const HOUSE_VARIANTS: Array[String] = [
-	"House_Blue.png", "House_Red.png", "House_Yellow.png", "House_Purple.png",
+	TS_BASE + "Buildings/Blue Buildings/House1.png",
+	TS_BASE + "Buildings/Blue Buildings/House2.png",
+	TS_BASE + "Buildings/Blue Buildings/House3.png",
+	TS_BASE + "Buildings/Red Buildings/House1.png",
+	TS_BASE + "Buildings/Red Buildings/House2.png",
+	TS_BASE + "Buildings/Red Buildings/House3.png",
+	TS_BASE + "Buildings/Yellow Buildings/House1.png",
+	TS_BASE + "Buildings/Yellow Buildings/House2.png",
+	TS_BASE + "Buildings/Yellow Buildings/House3.png",
+	TS_BASE + "Buildings/Purple Buildings/House1.png",
+	TS_BASE + "Buildings/Purple Buildings/House2.png",
+	TS_BASE + "Buildings/Purple Buildings/House3.png",
+	TS_BASE + "Buildings/Black Buildings/House1.png",
+	TS_BASE + "Buildings/Black Buildings/House2.png",
+	TS_BASE + "Buildings/Black Buildings/House3.png",
+	HOUSE_DIR + "House_Blue.png",
+	HOUSE_DIR + "House_Red.png",
+	HOUSE_DIR + "House_Yellow.png",
+	HOUSE_DIR + "House_Purple.png",
 ]
 
 
