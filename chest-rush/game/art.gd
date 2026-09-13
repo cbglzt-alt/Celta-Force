@@ -196,6 +196,13 @@ const UI_RIBBON_YELLOW := UI010_DIR + "Ribbons/Ribbon_Yellow_3Slides.png"
 ## 技能图标（64×64）
 const UI_ICONS_DIR := UI010_DIR + "Icons/"
 
+## Free Pack 按钮（技能/升级按钮背景，128×128）
+const UI_BTN_FREE_DIR := TS_BASE + "UI Elements/UI Elements/Buttons/"
+const UI_SKILL_BTN := UI_BTN_FREE_DIR + "SmallBlueRoundButton_Regular.png"
+const UI_SKILL_BTN_PRESSED := UI_BTN_FREE_DIR + "SmallBlueRoundButton_Pressed.png"
+const UI_UP_BTN_BLUE := UI_BTN_FREE_DIR + "SmallBlueSquareButton_Regular.png"
+const UI_UP_BTN_RED := UI_BTN_FREE_DIR + "SmallRedSquareButton_Regular.png"
+
 ## 死亡精灵（通用倒地）
 const DEAD_SPRITE := TS_UPD + "Factions/Knights/Troops/Dead/Dead.png"
 

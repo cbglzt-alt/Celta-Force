@@ -209,32 +209,38 @@ func _build_ui() -> void:
 	_time_label = _mk_label(tr, "", 16)
 	_vision_label = _mk_label(tr, "", 14)
 
-	# ---- 左下：技能栏（Carved_9Slides 面板 + 图标 + 文字）----
+	# ---- 左下：技能栏（SmallBlueRoundButton 背景 + 图标 + 文字）----
 	var skill_panel := PanelContainer.new()
 	skill_panel.add_theme_stylebox_override("panel", _mk_tex_style(Art.UI_PANEL_9, 64))
 	skill_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	skill_panel.position = Vector2(8 * s, -60 * s)
+	skill_panel.position = Vector2(8 * s, -64 * s)
 	skill_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(skill_panel)
 	var ghosts := HBoxContainer.new()
-	ghosts.add_theme_constant_override("separation", int(8 * s))
+	ghosts.add_theme_constant_override("separation", int(6 * s))
 	skill_panel.add_child(ghosts)
 	var icon_keys := ["Regular_01.png", "Regular_02.png", "Regular_03.png"]
 	for i in 3:
-		var slot := HBoxContainer.new()
-		slot.add_theme_constant_override("separation", int(4 * s))
+		var slot := PanelContainer.new()
+		slot.add_theme_stylebox_override("panel", _mk_tex_style(Art.UI_SKILL_BTN, 32))
+		slot.custom_minimum_size = Vector2(44 * s, 44 * s)
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ghosts.add_child(slot)
+		var slot_h := HBoxContainer.new()
+		slot_h.add_theme_constant_override("separation", int(3 * s))
+		slot_h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(slot_h)
 		var icon := TextureRect.new()
 		icon.texture = load(Art.UI_ICONS_DIR + icon_keys[i])
-		icon.custom_minimum_size = Vector2(24 * s, 24 * s)
+		icon.custom_minimum_size = Vector2(20 * s, 20 * s)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.expand_mode = TextureRect.EXPAND_KEEP_SIZE
-		slot.add_child(icon)
-		var l := _mk_label(slot, "", 15)
+		slot_h.add_child(icon)
+		var l := _mk_label(slot_h, "", 13)
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		_ghost_labels.append(l)
 
-	# ---- 右下：强化栏（Carved_9Slides 面板 + 3 个升级项）----
+	# ---- 右下：强化栏（SmallBlueSquareButton 背景 + 文字）----
 	var up_panel := PanelContainer.new()
 	up_panel.add_theme_stylebox_override("panel", _mk_tex_style(Art.UI_PANEL_9, 64))
 	up_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -244,9 +250,15 @@ func _build_ui() -> void:
 	var up_vb := VBoxContainer.new()
 	up_vb.add_theme_constant_override("separation", int(3 * s))
 	up_panel.add_child(up_vb)
-	_up_labels["attack"] = _mk_label(up_vb, "", 15)
-	_up_labels["speed"] = _mk_label(up_vb, "", 15)
-	_up_labels["hp"] = _mk_label(up_vb, "", 15)
+	for key in ["attack", "speed", "hp"]:
+		var up_slot := PanelContainer.new()
+		up_slot.add_theme_stylebox_override("panel", _mk_tex_style(Art.UI_UP_BTN_BLUE, 32))
+		up_slot.custom_minimum_size = Vector2(180 * s, 26 * s)
+		up_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		up_vb.add_child(up_slot)
+		_up_labels[key] = _mk_label(up_slot, "", 14)
+		_up_labels[key].horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_up_labels[key].vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 	# 顶部中央：撤离倒计时
 	_countdown_label = _mk_label(self, "", 34)
