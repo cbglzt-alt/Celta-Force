@@ -24,7 +24,6 @@ var chest_tiles: Dictionary = {}  # Vector2i -> true（宝箱格，寻路不可�
 var spawn_points: Array[Vector2] = []
 var player_start := Vector2.ZERO
 var exits: Array = []           # Dictionary{area, marker, tile, unlocked}
-var water_tiles: Dictionary = {}  # Vector2i -> true（水格，不可通行）
 
 
 func _ready() -> void:
@@ -144,33 +143,6 @@ func _build() -> void:
 					player_start = center
 				"H":
 					_make_house(center, t)
-				"W":
-					water_tiles[t] = true
-					# 水面精灵（z=-9 在地板之上、其余之下）+ 全格碰撞
-					var wbody := StaticBody2D.new()
-					wbody.collision_layer = 4
-					wbody.collision_mask = 0
-					var wcs := CollisionShape2D.new()
-					var wshape := RectangleShape2D.new()
-					wshape.size = Vector2(TILE, TILE)
-					wcs.shape = wshape
-					wcs.position = center
-					wbody.add_child(wcs)
-					var wsprite := Sprite2D.new()
-					wsprite.texture = load(Art.WATER_SPRITE)
-					wsprite.scale = Vector2(0.5, 0.5)  # 64→32px
-					wsprite.z_index = -9
-					wbody.add_child(wsprite)
-					wbody.position = center
-					add_child(wbody)
-				"B":
-					# 桥：无碰撞（可通行），精灵在水之上
-					var bsprite := Sprite2D.new()
-					bsprite.texture = Art.slice_grid(Art.BRIDGE_SPRITE, 64, 1, 1)
-					bsprite.scale = Vector2(0.5, 0.5)  # 64→32px
-					bsprite.z_index = -7  # 在水面(-9)之上
-					add_child(bsprite)
-					bsprite.position = center
 
 	add_child(wall_body)
 	add_child(wall_visual)
@@ -197,7 +169,7 @@ func _build_pathfinding() -> void:
 			var t := Vector2i(x, y)
 			var id := _pid(t)
 			_astar.add_point(id, tile_to_world(t))
-			if walls.has(t) or chest_tiles.has(t) or water_tiles.has(t) or (obstacles.get(t) != null and is_instance_valid(obstacles[t])):
+			if walls.has(t) or chest_tiles.has(t) or (obstacles.get(t) != null and is_instance_valid(obstacles[t])):
 				_astar.set_point_disabled(id, true)
 	for y in height:
 		for x in width:
