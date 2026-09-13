@@ -33,18 +33,16 @@ const DECOR_THEMES := {
 	"deep": ["bush3", "rock3", "rock4", "tree"],
 }
 
-## Tilemap_Flat 中草地瓦片的网格坐标（列 0-3），用于地面随机变体
+## Tilemap_Flat 中纯室内地面瓦片（row 1-2 是无边缘的完整地面，row 0/3 是边缘瓦片）
 const GRASS_TILES: Array[Vector2i] = [
-	Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0),
 	Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1),
 	Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2), Vector2i(3, 2),
-	Vector2i(0, 3), Vector2i(1, 3), Vector2i(2, 3), Vector2i(3, 3),
 ]
 
-## Tilemap_Flat 中沙土/路径瓦片的网格坐标（列 5-8）
+## Tilemap_Flat 中沙土/路径室内瓦片（row 1-2）
 const DIRT_TILES: Array[Vector2i] = [
-	Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0), Vector2i(8, 0),
 	Vector2i(5, 1), Vector2i(6, 1), Vector2i(7, 1), Vector2i(8, 1),
+	Vector2i(5, 2), Vector2i(6, 2), Vector2i(7, 2), Vector2i(8, 2),
 ]
 
 ## Tilemap_Elevation 中悬崖顶部瓦片（草地覆盖的墙顶）
