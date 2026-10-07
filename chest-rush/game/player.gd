@@ -32,6 +32,7 @@ var _anim := "idle"
 func _ready() -> void:
 	hp = max_hp
 	add_to_group("player")
+	z_as_relative = false
 	# 主角：Blue Warrior（全套 idle/walk 动画，192px/帧缩放 0.33 → ~64px）
 	var anims := Art.anims_of("player")
 	_sprite = AnimHelper.build_sprite(anims, 8.0, 0.33, Art.UNIT_CELL)
@@ -77,6 +78,7 @@ func _physics_process(_delta: float) -> void:
 	if stunned:
 		velocity = Vector2.ZERO
 		move_and_slide()
+		z_index = int(global_position.y)
 		_play("idle")
 		return
 	var dir := TouchControls.move_dir
@@ -85,6 +87,7 @@ func _physics_process(_delta: float) -> void:
 		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	velocity = dir * base_speed * speed_mult
 	move_and_slide()
+	z_index = int(global_position.y)
 	# 像素 sprite 不旋转（会糊），用水平翻转表左右朝向
 	if abs(dir.x) > 0.01:
 		_sprite.flip_h = dir.x < 0.0

@@ -98,7 +98,7 @@ func refresh() -> void:
 		_round_label.text = "波次 %d（下波 %ds）" % [game.round_num, int(ceil(game.round_time_left()))]
 	var t := int(game.run_time)
 	_time_label.text = "时间 %02d:%02d" % [t / 60, t % 60]
-	_vision_label.text = "视野道具 x%d（Q 使用） 视野半径 %d" % [game.vision_items, game.vision_radius()]
+	_vision_label.text = "视野道具 x%d（Q 使用·已关闭迷雾）" % game.vision_items
 	_refresh_upgrade("attack", "[1] 攻击")
 	_refresh_upgrade("speed", "[2] 移速")
 	_refresh_upgrade("hp", "[3] 生命上限")

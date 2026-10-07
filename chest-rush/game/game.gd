@@ -88,6 +88,16 @@ func _ready() -> void:
 	_world.add_child(player)
 	player.global_position = level.player_start
 	player.died.connect(_on_player_died)
+	# 背景清空色=水色，防止地图外闪黑；相机限制在地图+水域边距内
+	RenderingServer.set_default_clear_color(Color(0.278, 0.671, 0.663))
+	var cam := player.get_node_or_null("Camera2D") as Camera2D
+	if cam != null:
+		var margin_px := 14.0 * float(level.TILE)
+		cam.limit_left = int(-margin_px)
+		cam.limit_top = int(-margin_px)
+		cam.limit_right = int(level.width * level.TILE + margin_px)
+		cam.limit_bottom = int(level.height * level.TILE + margin_px)
+		cam.limit_enabled = true
 	fog.player = player
 	fog.force_update()
 	# 随机 quest_target 个宝箱藏任务道具（外表无区别，杜绝定向刷）
@@ -236,9 +246,10 @@ func _use_vision() -> void:
 		hud.message("没有视野道具")
 		return
 	vision_items -= 1
-	fog.vision_radius += 1
-	fog.force_update()
-	hud.message("视野范围 +1")
+	# 迷雾已关闭，道具改为一次性小回复
+	if player != null and is_instance_valid(player):
+		player.heal(12.0)
+	hud.message("迷雾已关闭 · 回复 12 生命")
 
 
 # ---------- 波次 ----------
@@ -337,7 +348,6 @@ func _on_enemy_died(pos: Vector2, gold_amt: int) -> void:
 # ---------- 破坏物掉落与拾取 ----------
 
 func _on_destructible_destroyed(d) -> void:
-	fog.force_update()  # 障碍摧毁后视野可能变化
 	call_deferred("_drop_from_destructible", d.global_position, d.kind, d.has_quest)
 
 
@@ -364,7 +374,11 @@ func _wave_scaled_gold(base_lo: int, base_hi: int) -> int:
 func _spawn_pickup(kind: Pickup.Kind, amount: int, pos: Vector2, gold_source := "") -> void:
 	var p = PickupScene.instantiate()
 	_world.add_child(p)
-	p.global_position = pos
+	# 掉落避开房屋/树/墙，避免金币挂在建筑上形成遮挡
+	var drop_pos := pos
+	if level != null and level.has_method("find_drop_pos"):
+		drop_pos = level.find_drop_pos(pos)
+	p.global_position = drop_pos
 	p.setup(kind, amount, fog, gold_source)
 
 

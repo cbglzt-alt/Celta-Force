@@ -151,6 +151,8 @@ func _physics_process(delta: float) -> void:
 	if stunned:
 		velocity = Vector2.ZERO
 		move_and_slide()
+		z_as_relative = false
+		z_index = int(global_position.y)
 		if not _dying and not _attacking:
 			_play("idle")
 		return
@@ -175,6 +177,8 @@ func _physics_process(delta: float) -> void:
 			dir = to_player.normalized()
 	velocity = dir * speed
 	move_and_slide()
+	z_as_relative = false
+	z_index = int(global_position.y)
 	# 像素 sprite 不旋转，用水平翻转表朝向
 	if abs(velocity.x) > 1.0:
 		_sprite.flip_h = velocity.x < 0.0

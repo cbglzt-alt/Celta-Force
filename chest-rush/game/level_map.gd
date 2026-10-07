@@ -21,6 +21,8 @@ var walls: Dictionary = {}      # Vector2i -> true
 var obstacles: Dictionary = {}  # Vector2i -> Destructible (存活时挡视野)
 var chests: Array = []
 var chest_tiles: Dictionary = {}  # Vector2i -> true（宝箱格，寻路不可通行）
+var house_tiles: Dictionary = {}  # Vector2i -> true（房屋占格，掉落物避开）
+var tree_tiles: Dictionary = {}   # Vector2i -> true（树占格，掉落物避开）
 var spawn_points: Array[Vector2] = []
 var player_start := Vector2.ZERO
 var exits: Array = []           # Dictionary{area, marker, tile, unlocked}
@@ -52,6 +54,41 @@ func world_to_tile(p: Vector2) -> Vector2i:
 
 func tile_to_world(t: Vector2i) -> Vector2:
 	return Vector2(t) * TILE + Vector2(TILE * 0.5, TILE * 0.5)
+
+
+## 俯视深度：Y 越大越靠前。房屋/树/单位共用
+func depth_z(world_y: float) -> int:
+	return int(world_y)
+
+
+## 掉落物是否应避开（墙/水/房屋/树/宝箱/障碍）
+func is_drop_blocked(world_pos: Vector2) -> bool:
+	var t := world_to_tile(world_pos)
+	if not in_bounds(t):
+		return true
+	if walls.has(t) or house_tiles.has(t) or tree_tiles.has(t) or chest_tiles.has(t):
+		return true
+	var o = obstacles.get(t)
+	if o != null and is_instance_valid(o):
+		return true
+	return false
+
+
+## 在 origin 附近找可落点，避免金币挂在房/树上
+func find_drop_pos(origin: Vector2, radius := 28.0, tries := 12) -> Vector2:
+	if not is_drop_blocked(origin):
+		return origin
+	for i in tries:
+		var ang := float(i) * TAU / float(tries) + randf() * 0.4
+		var p := origin + Vector2(cos(ang), sin(ang)) * (radius * (0.45 + randf() * 0.55))
+		if not is_drop_blocked(p):
+			return p
+	for dy in [16.0, 28.0, 40.0]:
+		var p2 := origin + Vector2(0, dy)
+		if not is_drop_blocked(p2):
+			return p2
+	return origin + Vector2(0, 24)
+
 
 
 func in_bounds(t: Vector2i) -> bool:
@@ -102,12 +139,9 @@ func _build() -> void:
 	for row in map_data:
 		assert(row.length() == width, "地图行宽不一致: %s" % row)
 
-	_build_floor()
-
 	var wall_body := StaticBody2D.new()
 	wall_body.collision_layer = 4
 	wall_body.collision_mask = 0
-	var wall_visual := WallVisual.new()
 
 	for y in height:
 		for x in width:
@@ -123,7 +157,6 @@ func _build() -> void:
 					cs.shape = shape
 					cs.position = center
 					wall_body.add_child(cs)
-					wall_visual.wall_tiles.append(t)
 				"o", "C":
 					var d = DestructibleScene.instantiate()
 					add_child(d)
@@ -144,8 +177,9 @@ func _build() -> void:
 				"H":
 					_make_house(center, t)
 
+	# 官方结构：水面 + 抬升草岛 + 南向石崖
+	_build_terrain()
 	add_child(wall_body)
-	add_child(wall_visual)
 	_build_decor()
 	assert(not chests.is_empty(), "地图没有宝箱")
 	assert(spawn_points.size() > 0, "地图没有刷怪点")
@@ -235,27 +269,29 @@ func _on_destructible_destroyed(d) -> void:
 
 ## 房屋：StaticBody2D 底部碰撞 + 精灵在 z_index=1（玩家可从上方/侧面穿过，底部挡住）
 ## 房屋不加入 walls 字典（不挡视野/寻路），只做物理碰撞
-func _make_house(center: Vector2, _t: Vector2i) -> void:
+func _make_house(center: Vector2, t: Vector2i) -> void:
+	house_tiles[t] = true
 	var body := StaticBody2D.new()
-	body.collision_layer = 4  # 同墙体层：挡玩家/敌人/LOS
+	body.collision_layer = 4  # 底碰撞：挡玩家/召唤物；上/左/右可绕
 	body.collision_mask = 0
-	# 底部碰撞条（只有房屋底部挡路，上方/侧面可穿过）
 	var cs := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
 	shape.size = Vector2(36, 14)
 	cs.shape = shape
-	cs.position = Vector2(0, 14)  # 偏向底部
+	cs.position = Vector2(0, 14)
 	body.add_child(cs)
-	# 房屋精灵（128×192 缩放 0.5 = 64×96px，底部对齐格子底边）
 	var idx := randi() % Art.HOUSE_VARIANTS.size()
 	var sprite := Sprite2D.new()
 	sprite.texture = load(Art.HOUSE_VARIANTS[idx])
 	sprite.scale = Vector2(0.5, 0.5)
-	sprite.offset = Vector2(0, -32)  # 上移使底部对齐格底
-	sprite.z_index = 1  # 在玩家(0)之上，玩家可"走到房屋后面"
+	sprite.offset = Vector2(0, -32)
+	sprite.z_as_relative = false
 	body.add_child(sprite)
 	add_child(body)
 	body.global_position = center
+	var foot_y := center.y + 14.0
+	body.z_index = depth_z(foot_y)
+	sprite.z_index = body.z_index
 
 
 ## 装饰层：地面树木/灌木/岩石（按关卡主题选择）。纯视觉 + 底部碰撞。
@@ -275,16 +311,16 @@ func _build_decor() -> void:
 			if rng.randf() < 0.08:
 				var key: String = decor_keys[rng.randi() % decor_keys.size()]
 				_add_ts_decor(key, tile_to_world(t) + Vector2(rng.randf_range(-6, 6), rng.randf_range(-4, 4)), rng)
-	# 墙面装饰：墙脚放岩石（替代旧版火把）
+	# 岸边装饰：陆地南缘（邻水）散落岩石
 	for y in height:
 		for x in width:
 			var t := Vector2i(x, y)
-			if not walls.has(t):
+			if walls.has(t):
 				continue
 			var below := t + Vector2i(0, 1)
-			if in_bounds(below) and not blocks_vision(below) and rng.randf() < 0.10:
+			if in_bounds(below) and walls.has(below) and rng.randf() < 0.12:
 				var key: String = ["rock1", "rock2", "rock3", "rock4"][rng.randi() % 4]
-				_add_ts_decor(key, tile_to_world(t) + Vector2(0, 6), rng)
+				_add_ts_decor(key, tile_to_world(t) + Vector2(0, 8), rng)
 
 
 ## 用 tiny-swords 装饰精灵放置地面/墙面装饰
@@ -312,24 +348,28 @@ func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> voi
 		var s := AnimatedSprite2D.new()
 		s.sprite_frames = sf
 		s.scale = Vector2(sc, sc)
-		s.offset = Vector2(0, -8)  # 底部对齐格子底边
-		s.z_index = 3  # 渲染在墙体之上
+		s.offset = Vector2(0, -8)
+		s.z_as_relative = false
 		s.play("sway")
 		s.frame = rng.randi() % Art.TREE_FRAMES.size()
 		s.sprite_frames.set_animation_speed("sway", rng.randf_range(2.5, 4.0))
-		# 用 StaticBody2D 包裹：底部树干碰撞，上方/侧面可穿过
 		var body := StaticBody2D.new()
 		body.collision_layer = 4
 		body.collision_mask = 0
 		var cs := CollisionShape2D.new()
 		var shape := RectangleShape2D.new()
-		shape.size = Vector2(10, 8)  # 细树干碰撞
+		shape.size = Vector2(10, 8)
 		cs.shape = shape
 		cs.position = Vector2(0, 6)
 		body.add_child(cs)
 		body.add_child(s)
 		add_child(body)
 		body.global_position = pos
+		var tt := world_to_tile(pos)
+		tree_tiles[tt] = true
+		var foot_y := pos.y + 6.0
+		body.z_index = depth_z(foot_y)
+		s.z_index = body.z_index
 	elif is_bush:
 		# 灌木：静态首帧 + 缩放呼吸（帧间偏移太大不能做动画）
 		var sprite_tex: Texture2D = tex
@@ -346,75 +386,349 @@ func _add_ts_decor(key: String, pos: Vector2, rng: RandomNumberGenerator) -> voi
 		tw.tween_property(s, "scale", Vector2(sc * 1.08, sc * 1.08), 1.5).set_trans(Tween.TRANS_SINE)
 		tw.tween_property(s, "scale", Vector2(sc, sc), 1.5).set_trans(Tween.TRANS_SINE)
 
-
-## 地板：用关卡专属色板瓦片平铺
-func _build_floor() -> void:
-	var atlas_path: String = Art.TILE_ATLASES.get(tile_theme, Art.FLAT_ATLAS)
-	var f := FloorBG.new()
-	f.setup(width, height, TILE, load(atlas_path))
-	add_child(f)
+## 官方宣传图结构：水底 + 草岛 + 南向 elevation 石崖
+func _build_terrain() -> void:
+	var terrain := TerrainVisual.new()
+	terrain.setup(width, height, TILE, walls)
+	add_child(terrain)
 
 
-## 地板：从图集取草地变体平铺 + 淡网格
-class FloorBG extends Node2D:
+## 从图集切一格；fill_transparent 时填实，避免透出水/底色
+static func _slice_tile(img: Image, g: Vector2i, fill_transparent: bool = true) -> Texture2D:
+	if img == null:
+		return null
+	var src := Rect2i(g.x * Art.SRC_TILE, g.y * Art.SRC_TILE, Art.SRC_TILE, Art.SRC_TILE)
+	if not Rect2i(Vector2i.ZERO, img.get_size()).encloses(src):
+		return null
+	var sub := Image.create(Art.SRC_TILE, Art.SRC_TILE, false, Image.FORMAT_RGBA8)
+	sub.blit_rect(img, src, Vector2i.ZERO)
+	if not fill_transparent:
+		return ImageTexture.create_from_image(sub)
+	var sr := 0.0
+	var sg := 0.0
+	var sb := 0.0
+	var sn := 0
+	for py in Art.SRC_TILE:
+		for px in Art.SRC_TILE:
+			var c: Color = sub.get_pixel(px, py)
+			if c.a > 0.78:
+				sr += c.r
+				sg += c.g
+				sb += c.b
+				sn += 1
+	if sn <= 0:
+		return ImageTexture.create_from_image(sub)
+	var fill := Color(sr / sn, sg / sn, sb / sn, 1.0)
+	for py in Art.SRC_TILE:
+		for px in Art.SRC_TILE:
+			var c2: Color = sub.get_pixel(px, py)
+			if c2.a < 0.99:
+				if c2.a < 0.05:
+					sub.set_pixel(px, py, fill)
+				else:
+					sub.set_pixel(px, py, Color(c2.r, c2.g, c2.b, 1.0).lerp(fill, 1.0 - c2.a))
+	return ImageTexture.create_from_image(sub)
+
+
+static func _slice_opaque_tile(img: Image, g: Vector2i) -> Texture2D:
+	return _slice_tile(img, g, true)
+
+
+## 地形：大范围水面 + 草岛 + 南向石崖 + 岸边泡沫动画
+## 水面向外多铺，避免相机在地图四角看到清空色黑块
+class TerrainVisual extends Node2D:
+	const WATER_MARGIN := 14
+	const FOAM_SCALE := 0.55
+	const FOAM_FPS := 10.0
+
 	var w: int
 	var h: int
 	var ts: int
-	var atlas: Texture2D
-	var _rng := RandomNumberGenerator.new()
-	var _floor_tiles: Array[Texture2D] = []
+	var _wall_set: Dictionary = {}
+	var _grass: Dictionary = {}
+	var _cliff: Dictionary = {}
+	var _water: Texture2D
+	var _shadow: Texture2D
+	var _foam_frames: Array[Texture2D] = []
+	var _shore: Array[Vector2i] = []
+	var _foam_i: int = 0
+	var _foam_acc: float = 0.0
 
-	func setup(_w: int, _h: int, _ts: int, _atlas: Texture2D) -> void:
+	func setup(_w: int, _h: int, _ts: int, wall_set: Dictionary) -> void:
 		w = _w
 		h = _h
 		ts = _ts
-		atlas = _atlas
+		_wall_set = wall_set
 		z_index = -10
-		_rng.seed = 20260728
-		# 从图集直接切草地变体（兼容不同色板图集）
-		if atlas != null:
-			var img := atlas.get_image()
-			for g in Art.GRASS_TILES:
-				var sub := Image.create(Art.SRC_TILE, Art.SRC_TILE, false, Image.FORMAT_RGBA8)
-				sub.blit_rect(img, Rect2i(g.x * Art.SRC_TILE, g.y * Art.SRC_TILE, Art.SRC_TILE, Art.SRC_TILE), Vector2i.ZERO)
-				_floor_tiles.append(ImageTexture.create_from_image(sub))
+		_load_textures()
+		_build_shore_list()
+		set_process(not _foam_frames.is_empty())
+		queue_redraw()
+
+	func _process(delta: float) -> void:
+		if _foam_frames.is_empty():
+			return
+		_foam_acc += delta
+		var step := 1.0 / FOAM_FPS
+		if _foam_acc < step:
+			return
+		_foam_acc = fmod(_foam_acc, step)
+		_foam_i = (_foam_i + 1) % _foam_frames.size()
+		queue_redraw()
+
+	func _load_textures() -> void:
+		var water_tex: Texture2D = load(Art.WATER_TEX)
+		if water_tex == null:
+			water_tex = load(Art.WATER_BG_FREE)
+		if water_tex != null:
+			var wimg := water_tex.get_image()
+			if wimg.get_width() != Art.SRC_TILE or wimg.get_height() != Art.SRC_TILE:
+				wimg = wimg.duplicate()
+				wimg.resize(Art.SRC_TILE, Art.SRC_TILE, Image.INTERPOLATE_NEAREST)
+			_water = ImageTexture.create_from_image(wimg)
+			var sh_tex: Texture2D = load(Art.SHADOW_TEX)
+			if sh_tex == null:
+				sh_tex = load(Art.SHADOW_TEX_FREE)
+			if sh_tex != null:
+				# Shadows.png 多为 192；缩到约 2 格宽作南侧投影
+				var simg := sh_tex.get_image()
+				simg = simg.duplicate()
+				simg.resize(Art.SRC_TILE * 2, Art.SRC_TILE, Image.INTERPOLATE_NEAREST)
+				_shadow = ImageTexture.create_from_image(simg)
+
+		var flat: Texture2D = load(Art.FLAT_ATLAS)
+		if flat != null:
+			var fimg := flat.get_image()
+			var gkeys: Array[Vector2i] = [
+				Art.GRASS_CENTER, Art.GRASS_CENTER_ALT,
+				Art.GRASS_N, Art.GRASS_S, Art.GRASS_W, Art.GRASS_E,
+				Art.GRASS_NW, Art.GRASS_NE, Art.GRASS_SW, Art.GRASS_SE,
+				Art.GRASS_W2, Art.GRASS_E2,
+			]
+			for g in gkeys:
+				var fill := g == Art.GRASS_CENTER or g == Art.GRASS_CENTER_ALT
+				var tex := LevelMap._slice_tile(fimg, g, fill)
+				if tex != null:
+					_grass[g] = tex
+		# 圆润石柱崖：color1 右下，保留透明（不要填实成方砖）
+		var cliff_atlas: Texture2D = load(Art.CLIFF_ATLAS)
+		if cliff_atlas == null:
+			cliff_atlas = load(Art.COLOR1_ATLAS)
+		if cliff_atlas != null:
+			var eimg := cliff_atlas.get_image()
+			var ckeys: Array[Vector2i] = [
+				Art.CLIFF_FACE_L, Art.CLIFF_FACE_C, Art.CLIFF_FACE_C2, Art.CLIFF_FACE_R,
+				Art.CLIFF_DEEP_L, Art.CLIFF_DEEP_C, Art.CLIFF_DEEP_C2, Art.CLIFF_DEEP_R,
+			]
+			for g in ckeys:
+				var tex2 := LevelMap._slice_tile(eimg, g, false)
+				if tex2 != null:
+					_cliff[g] = tex2
+		# Foam.png 是圆形水花环；整格贴会变白方块。
+		# 只切环的下弧，做成贴在石崖底边的横向水波条。
+		var foam_tex: Texture2D = load(Art.WATER_FOAM)
+		if foam_tex != null:
+			var fimg2 := foam_tex.get_image()
+			var cell := Art.FOAM_CELL
+			var n: int = mini(Art.FOAM_FRAMES, int(fimg2.get_width() / maxi(cell, 1)))
+			# 圆环最外下缘（更贴水面的细白浪）
+			var src_x := 48
+			var src_y := 120
+			var src_w := 96
+			var src_h := 24
+			for i in n:
+				var sub := Image.create(src_w, src_h, false, Image.FORMAT_RGBA8)
+				sub.blit_rect(fimg2, Rect2i(i * cell + src_x, src_y, src_w, src_h), Vector2i.ZERO)
+				# 去掉过淡像素，只留明显白浪
+				for py in src_h:
+					for px in src_w:
+						var c: Color = sub.get_pixel(px, py)
+						if c.a < 0.20:
+							sub.set_pixel(px, py, Color(0, 0, 0, 0))
+						elif c.a < 0.45 and c.r < 0.75:
+							sub.set_pixel(px, py, Color(0, 0, 0, 0))
+				_foam_frames.append(ImageTexture.create_from_image(sub))
+
+	func _build_shore_list() -> void:
+		_shore.clear()
+		# 只在「陆地正南」的水格（石崖底边）放水波，不要四面乱贴
+		for y in h:
+			for x in w:
+				var t := Vector2i(x, y)
+				if not _is_water(t):
+					continue
+				if _is_land(Vector2i(x, y - 1)):
+					_shore.append(t)
+		# 地图最底边陆地：界外下一格也算崖底波
+		for x in w:
+			if _is_land(Vector2i(x, h - 1)):
+				_shore.append(Vector2i(x, h))
+
+	func _is_land(t: Vector2i) -> bool:
+		if t.x < 0 or t.y < 0 or t.x >= w or t.y >= h:
+			return false
+		return not _wall_set.has(t)
+
+	func _is_water(t: Vector2i) -> bool:
+		if t.x < 0 or t.y < 0 or t.x >= w or t.y >= h:
+			return true
+		return _wall_set.has(t)
+
+	func _pick_grass(t: Vector2i) -> Vector2i:
+		var n := _is_land(Vector2i(t.x, t.y - 1))
+		var e := _is_land(Vector2i(t.x + 1, t.y))
+		var s := _is_land(Vector2i(t.x, t.y + 1))
+		var ww := _is_land(Vector2i(t.x - 1, t.y))
+		if not n and not ww and e and s:
+			return Art.GRASS_NW
+		if not n and not e and ww and s:
+			return Art.GRASS_NE
+		if not s and not ww and e and n:
+			return Art.GRASS_SW
+		if not s and not e and ww and n:
+			return Art.GRASS_SE
+		if not n and e and s and ww:
+			return Art.GRASS_N
+		if not s and n and e and ww:
+			return Art.GRASS_S
+		if not ww and n and e and s:
+			return Art.GRASS_W if ((t.x + t.y) & 1) == 0 else Art.GRASS_W2
+		if not e and n and ww and s:
+			return Art.GRASS_E if ((t.x + t.y) & 1) == 0 else Art.GRASS_E2
+		if not n and not ww:
+			return Art.GRASS_NW
+		if not n and not e:
+			return Art.GRASS_NE
+		if not s and not ww:
+			return Art.GRASS_SW
+		if not s and not e:
+			return Art.GRASS_SE
+		if not n:
+			return Art.GRASS_N
+		if not s:
+			return Art.GRASS_S
+		if not ww:
+			return Art.GRASS_W
+		if not e:
+			return Art.GRASS_E
+		if ((t.x * 3 + t.y * 7) & 1) == 0:
+			return Art.GRASS_CENTER
+		return Art.GRASS_CENTER_ALT
+
+	func _pick_cliff_face(water_t: Vector2i) -> Vector2i:
+		var y := water_t.y
+		var left := water_t.x
+		while true:
+			var p := Vector2i(left - 1, y)
+			var north := Vector2i(left - 1, y - 1)
+			if not _is_water(p) or not _is_land(north):
+				break
+			left -= 1
+		var right := water_t.x
+		while true:
+			var p2 := Vector2i(right + 1, y)
+			var north2 := Vector2i(right + 1, y - 1)
+			if not _is_water(p2) or not _is_land(north2):
+				break
+			right += 1
+		var length := right - left + 1
+		var idx := water_t.x - left
+		var seq: Array[Vector2i] = [
+			Art.CLIFF_FACE_L, Art.CLIFF_FACE_C, Art.CLIFF_FACE_C2, Art.CLIFF_FACE_R
+		]
+		if length <= 1:
+			return seq[1]
+		if length == 2:
+			return seq[0] if idx == 0 else seq[3]
+		if idx == 0:
+			return seq[0]
+		if idx == length - 1:
+			return seq[3]
+		var mid: Array[Vector2i] = [seq[1], seq[2]]
+		return mid[(idx - 1) % 2]
+
+	func _pick_cliff_deep(water_t: Vector2i) -> Vector2i:
+		var face := _pick_cliff_face(Vector2i(water_t.x, water_t.y - 1))
+		if face == Art.CLIFF_FACE_L:
+			return Art.CLIFF_DEEP_L
+		if face == Art.CLIFF_FACE_R:
+			return Art.CLIFF_DEEP_R
+		if face == Art.CLIFF_FACE_C2:
+			return Art.CLIFF_DEEP_C2
+		return Art.CLIFF_DEEP_C
 
 	func _draw() -> void:
 		var cell := Vector2(ts, ts)
-		if _floor_tiles.is_empty():
-			# 兜底：纯色草地背景
-			draw_rect(Rect2(0, 0, w * ts, h * ts), Color(0.6, 0.74, 0.31), true)
+		var m := WATER_MARGIN
+		# 1) 大范围水面（含地图外），消灭四角黑块
+		if _water != null:
+			for y in range(-m, h + m):
+				for x in range(-m, w + m):
+					draw_texture_rect(_water, Rect2(Vector2(x * ts, y * ts), cell), false)
 		else:
+			draw_rect(Rect2(Vector2(-m * ts, -m * ts), Vector2((w + m * 2) * ts, (h + m * 2) * ts)), Color(0.28, 0.67, 0.66), true)
+
+		# 2) 抬升阴影（tinyswords：阴影在可走面南侧一格）
+		if _shadow != null:
+			var sw := float(ts) * 1.55
+			var sh := float(ts) * 0.80
 			for y in h:
 				for x in w:
-					var tex: Texture2D = _floor_tiles[_rng.randi() % _floor_tiles.size()]
-					draw_texture_rect(tex, Rect2(Vector2(x * ts, y * ts), cell), false)
+					if not _is_land(Vector2i(x, y)):
+						continue
+					if _is_water(Vector2i(x, y + 1)):
+						var sx := float(x * ts) + (float(ts) - sw) * 0.5
+						var sy := float((y + 1) * ts) - sh * 0.20
+						draw_texture_rect(_shadow, Rect2(sx, sy, sw, sh), false)
 
+		# 3) 陆地草地
+		var gcenter: Texture2D = _grass.get(Art.GRASS_CENTER, null)
+		for y in h:
+			for x in w:
+				var t := Vector2i(x, y)
+				if not _is_land(t):
+					continue
+				var gk: Vector2i = _pick_grass(t)
+				var gtex: Texture2D = _grass.get(gk, gcenter)
+				if gtex != null:
+					draw_texture_rect(gtex, Rect2(Vector2(x * ts, y * ts), cell), false)
 
-## 墙体一次性绘制：深色实体 + 描边（不用图集瓦片，避免拼接问题）
-class WallVisual extends Node2D:
-	var wall_tiles: Array[Vector2i] = []
-	var _wall_set: Dictionary = {}  # Vector2i -> true，O(1) 查找
+		# 4) 南向石崖
+		for y in h:
+			for x in w:
+				var t2 := Vector2i(x, y)
+				if not _is_water(t2):
+					continue
+				var north := Vector2i(x, y - 1)
+				if _is_land(north):
+					var ck: Vector2i = _pick_cliff_face(t2)
+					var ctex: Texture2D = _cliff.get(ck, null)
+					if ctex != null:
+						draw_texture_rect(ctex, Rect2(Vector2(x * ts, y * ts), cell), false)
+				elif y >= 1:
+					var n2 := Vector2i(x, y - 1)
+					var n3 := Vector2i(x, y - 2)
+					if _is_water(n2) and _is_land(n3):
+						var dk: Vector2i = _pick_cliff_deep(t2)
+						var dtex: Texture2D = _cliff.get(dk, null)
+						if dtex != null:
+							draw_texture_rect(dtex, Rect2(Vector2(x * ts, y * ts), cell), false)
 
-	func _ready() -> void:
-		_wall_set.clear()
-		for t in wall_tiles:
-			_wall_set[t] = true
-
-	func _draw() -> void:
-		var ts := 32
-		var cell := Vector2(ts, ts)
-		var wall_col := Color(0.18, 0.16, 0.22)
-		var edge_col := Color(0.10, 0.09, 0.14)
-		for t in wall_tiles:
-			var dest := Rect2(Vector2(t.x * ts, t.y * ts), cell)
-			var below := Vector2i(t.x, t.y + 1)
-			# 墙顶（下方是地板）用稍亮色，墙身用深色
-			if _is_wall(below):
-				draw_rect(dest, wall_col, true)
-			else:
-				draw_rect(dest, Color(0.22, 0.20, 0.27), true)
-			draw_rect(dest, edge_col, false, 1.0)
-
-	func _is_wall(t: Vector2i) -> bool:
-		return _wall_set.has(t)
+		# 5) 石崖最底边与水面相交处的白色水波（不要画在崖身中间）
+		if not _foam_frames.is_empty() and not _shore.is_empty():
+			var wave_h := float(ts) * 0.26
+			var wave_w := float(ts) * 1.10
+			for s in _shore:
+				var phase: int = int(absi(s.x * 3 + s.y * 5)) % _foam_frames.size()
+				var fi: int = (_foam_i + phase) % _foam_frames.size()
+				var ft: Texture2D = _foam_frames[fi]
+				# 主崖画在 s；若 s 正南还有加深崖，底边下移一格
+				var bottom_row := s.y
+				var deep := Vector2i(s.x, s.y + 1)
+				if deep.y < h and _is_water(deep) and _is_land(Vector2i(s.x, s.y - 1)):
+					# 与 _draw 加深崖条件一致：face 在 s，deep 在 s 南
+					bottom_row = s.y + 1
+				# 浪中心贴在石柱底缘（格底略上），大部分在水面里
+				var cx := float(s.x * ts) + (float(ts) - wave_w) * 0.5
+				var cy := float(bottom_row * ts) + float(ts) - wave_h * 0.55
+				draw_texture_rect(ft, Rect2(cx, cy, wave_w, wave_h), false)

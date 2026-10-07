@@ -58,7 +58,6 @@ func setup(k: Kind, t: Vector2i) -> void:
 			sf.add_frame("idle", tex)
 		_sprite.scale = Vector2(0.5, 0.5)
 		_sprite.offset = Vector2(0, -32)  # 底部对齐
-		_sprite.z_index = 1  # 渲染在玩家之上
 		# 加底部碰撞（与房屋一致）
 		var body := StaticBody2D.new()
 		body.collision_layer = 4
@@ -71,26 +70,29 @@ func setup(k: Kind, t: Vector2i) -> void:
 		body.add_child(cs)
 		add_child(body)
 	else:
-		# 宝箱用 GoldMine（192×128），缩放 0.5 + 底部碰撞
+		# 宝箱用 GoldMine（192×128→96×64）。底座要宽，避免左右下方穿模
 		var ctex: Texture2D = load(CHEST_TEX)
 		if ctex:
 			sf.add_frame("idle", ctex)
 		_sprite.scale = Vector2(0.5, 0.5)
 		_sprite.offset = Vector2(0, -16)  # 底部对齐
-		_sprite.z_index = 1
-		var body := StaticBody2D.new()
-		body.collision_layer = 4
-		body.collision_mask = 0
-		var cs := CollisionShape2D.new()
-		var shape := RectangleShape2D.new()
-		shape.size = Vector2(36, 14)
-		cs.shape = shape
-		cs.position = Vector2(0, 14)
-		body.add_child(cs)
-		add_child(body)
+		# 用根节点碰撞：宽底座挡住左右下方；上半仍可视觉遮挡
+		var root_cs := get_node_or_null("CollisionShape2D") as CollisionShape2D
+		if root_cs != null:
+			var root_shape := RectangleShape2D.new()
+			# GoldMine 底宽约 90px，给玩家半径 13 留贴边；高度盖住门洞两侧
+			root_shape.size = Vector2(78, 30)
+			root_cs.shape = root_shape
+			root_cs.position = Vector2(0, 8)
+			root_cs.disabled = false
 	_sprite.sprite_frames = sf
 	_sprite.play("idle")
+	_sprite.z_as_relative = false
 	add_child(_sprite)
+	z_as_relative = false
+	var foot := global_position.y + 14.0
+	z_index = int(foot)
+	_sprite.z_index = z_index
 
 
 ## 宝箱贴近读条
@@ -103,7 +105,13 @@ func _process(delta: float) -> void:
 	if not _player.alive:
 		_set_opening(false)
 		return
-	var in_range: bool = global_position.distance_to(_player.global_position) <= chest_open_range
+	# 只能从下方靠近开启：玩家在宝箱南侧，且水平不太偏
+	var to_player: Vector2 = _player.global_position - global_position
+	var in_range: bool = (
+		to_player.length() <= chest_open_range
+		and to_player.y >= 8.0
+		and absf(to_player.x) <= chest_open_range * 0.75
+	)
 	_set_opening(in_range)
 	if _opening:
 		_open_progress += delta
@@ -175,7 +183,7 @@ func _play_open() -> void:
 	tw.tween_property(_sprite, "scale", Vector2(0.5, 0.5), 0.1)
 	destroyed.emit(self)
 	await tw.finished
-	$CollisionShape2D.set_deferred("disabled", true)
+	_disable_all_collision()
 	remove_from_group("destructibles")
 
 
@@ -208,14 +216,7 @@ func _break_open() -> void:
 	tw.tween_property(_sprite, "modulate", Color(0.5, 0.45, 0.5), 0.2)
 	tw.tween_property(_sprite, "scale", _sprite.scale * 0.8, 0.2)
 	await tw.finished
-	# 关闭碰撞（StaticBody2D 的碰撞）
-	for child in get_children():
-		if child is StaticBody2D:
-			for cs in child.get_children():
-				if cs is CollisionShape2D:
-					cs.set_deferred("disabled", true)
-	remove_from_group("destructibles")
-	$CollisionShape2D.set_deferred("disabled", true)
+	_disable_all_collision()
 	remove_from_group("destructibles")
 
 
@@ -234,3 +235,15 @@ func _square_poly(half: float) -> PackedVector2Array:
 	return PackedVector2Array([
 		Vector2(-half, -half), Vector2(half, -half),
 		Vector2(half, half), Vector2(-half, half)])
+
+
+## 关闭自身及子 StaticBody 上全部碰撞（开启/打碎后可走过）
+func _disable_all_collision() -> void:
+	var root_cs := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if root_cs != null:
+		root_cs.set_deferred("disabled", true)
+	for child in get_children():
+		if child is StaticBody2D:
+			for cs in child.get_children():
+				if cs is CollisionShape2D:
+					cs.set_deferred("disabled", true)

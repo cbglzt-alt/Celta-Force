@@ -12,12 +12,19 @@ const UNIT_CELL := 192  # tiny-swords 单位精灵每帧边长
 ## 瓦片图集源瓦片大小（64px），渲染时缩放到 TILE=32
 const SRC_TILE := 64
 
-# ---- 瓦片图集路径 ----
-const FLAT_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Flat.png"       # 640×256 = 10×4 草地/沙土
-const ELEV_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Elevation.png"   # 256×512 = 4×8 悬崖/墙体
+# ---- 瓦片图集路径（官方宣传图结构：水 + 抬升草岛 + 南向石崖）----
+const COLOR1_ATLAS := TS_BASE + "Terrain/Tileset/Tilemap_color1.png"
+const FLAT_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Flat.png"
+const ELEV_ATLAS := TS_UPD + "Terrain/Ground/Tilemap_Elevation.png"
+const WATER_TEX := TS_UPD + "Terrain/Water/Water.png"
+const WATER_FOAM := TS_UPD + "Terrain/Water/Foam/Foam.png"
+const FOAM_CELL := 192
+const FOAM_FRAMES := 8
+const WATER_BG_FREE := TS_BASE + "Terrain/Tileset/Water Background color.png"
+const SHADOW_TEX := TS_UPD + "Terrain/Ground/Shadows.png"
+const SHADOW_TEX_FREE := TS_BASE + "Terrain/Tileset/Shadow.png"
 
-## 每关不同地形色板——统一用 Tilemap_Flat（已知布局），靠氛围色调区分
-## Tilemap_color 系列布局不同(9×6 vs 10×4)，直接切片会导致取到错误的过渡瓦片
+## 地面填充用 Flat（与官方演示一致）；color1 仅作备用
 const TILE_ATLASES := {
 	"grass": FLAT_ATLAS,
 	"forest": FLAT_ATLAS,
@@ -25,7 +32,6 @@ const TILE_ATLASES := {
 	"deep": FLAT_ATLAS,
 }
 
-## 装饰主题：每关用不同装饰组合
 const DECOR_THEMES := {
 	"grassland": ["rock1", "rock2", "bush1", "bush2", "bush4", "tree", "tree"],
 	"forest": ["tree", "tree", "tree", "bush1", "bush2", "bush3", "bush4"],
@@ -33,38 +39,31 @@ const DECOR_THEMES := {
 	"deep": ["bush3", "bush4", "rock3", "rock4", "tree", "bone15", "bone09"],
 }
 
-## Tilemap_Flat 中纯室内地面瓦片（只有 row 1 是无边缘的完整地面）
-## row 0 = 上边缘, row 2 = 下边缘, row 3 = 上下边缘组合 — 都不能用
-const GRASS_TILES: Array[Vector2i] = [
-	Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1),  # 草地室内
-	Vector2i(6, 1),  # 沙土室内（点缀变化）
-]
+## Flat 草地（10x4 图集，左 4 列草，右沙土不用）
+const GRASS_CENTER := Vector2i(1, 1)
+const GRASS_CENTER_ALT := Vector2i(1, 2)
+const GRASS_N := Vector2i(1, 0)
+const GRASS_S := Vector2i(1, 3)
+const GRASS_W := Vector2i(0, 1)
+const GRASS_E := Vector2i(2, 1)
+const GRASS_NW := Vector2i(0, 0)
+const GRASS_NE := Vector2i(2, 0)
+const GRASS_SW := Vector2i(0, 3)
+const GRASS_SE := Vector2i(2, 3)
+const GRASS_W2 := Vector2i(0, 2)
+const GRASS_E2 := Vector2i(2, 2)
 
-## Tilemap_Flat 中沙土室内瓦片（只有 row 1）
-const DIRT_TILES: Array[Vector2i] = [
-	Vector2i(6, 1),
-]
-
-## Tilemap_Elevation 中悬崖顶部瓦片（草地覆盖的墙顶）
-const WALL_TOP_TILES: Array[Vector2i] = [
-	Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0),
-]
-
-## Tilemap_Elevation 中悬崖正面瓦片（浅色）
-const WALL_FACE_TILES: Array[Vector2i] = [
-	Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1),
-	Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2), Vector2i(3, 2),
-]
-
-## Tilemap_Elevation 中深色悬崖正面瓦片
-const WALL_DARK_TILES: Array[Vector2i] = [
-	Vector2i(0, 3), Vector2i(1, 3), Vector2i(2, 3), Vector2i(3, 3),
-]
-
-## Tilemap_Elevation 中深色阴影/底边瓦片
-const WALL_BOTTOM_TILES: Array[Vector2i] = [
-	Vector2i(0, 7), Vector2i(2, 7), Vector2i(3, 7),
-]
+## 南向石崖：Tilemap_color1 右下圆润石柱（官方演示同款）
+## row4 = 带草顶崖面；row5 = 纯石加深。按 5→6→7→8 顺序拼接
+const CLIFF_FACE_L := Vector2i(5, 4)
+const CLIFF_FACE_C := Vector2i(6, 4)
+const CLIFF_FACE_C2 := Vector2i(7, 4)
+const CLIFF_FACE_R := Vector2i(8, 4)
+const CLIFF_DEEP_L := Vector2i(5, 5)
+const CLIFF_DEEP_C := Vector2i(6, 5)
+const CLIFF_DEEP_C2 := Vector2i(7, 5)
+const CLIFF_DEEP_R := Vector2i(8, 5)
+const CLIFF_ATLAS := COLOR1_ATLAS  # 石崖图集（非 Elevation 方砖）
 
 # ---- 单位精灵路径 ----
 

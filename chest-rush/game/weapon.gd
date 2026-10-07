@@ -62,7 +62,9 @@ func setup(idx: int, player_ref: Node2D, level_ref: Node2D, fog_ref: Node2D) -> 
 	_player = player_ref
 	_level = level_ref
 	_fog = fog_ref
-	z_index = 50  # 召唤物渲染在迷雾之上（玩家始终可见自己的召唤物）
+	# 深度排序：与房屋/树同一规则（Y 越大越前），不再固定 50 盖住一切
+	z_as_relative = false
+	z_index = 0
 	# 物理碰撞：只撞墙体/房屋/树/水（layer 4），不撞玩家/敌人/其他召唤物
 	collision_layer = 0
 	collision_mask = 4
@@ -220,6 +222,11 @@ func _physics_process(delta: float) -> void:
 				_play_anim("idle")
 
 	move_and_slide()  # 统一执行物理移动（碰撞由 CharacterBody2D 处理）
+	# 与房屋/树 Y 深度：下方画在前，上方/左右被挡
+	z_index = int(global_position.y)
+	if _marker != null:
+		_marker.z_as_relative = false
+		_marker.z_index = z_index
 
 	# AURA 范围圈跟随武器位置
 	if _aura_ring != null:
